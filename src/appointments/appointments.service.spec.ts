@@ -323,9 +323,216 @@ describe('AppointmentsService — admin slot CRUD (US8)', () => {
   });
 });
 
+describe('AppointmentsService — bookSlot (US2)', () => {
+  let service: AppointmentsService;
+  let prisma: Record<string, unknown>;
+  let txMock: Record<string, unknown>;
+
+  beforeEach(async () => {
+    prisma = {
+      user: { findUnique: jest.fn() },
+      doctor: { findUnique: jest.fn() },
+      doctorSlot: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+        delete: jest.fn(),
+      },
+      appointment: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
+    txMock = {
+      doctorSlot: {
+        updateMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+      },
+      appointment: {
+        create: jest.fn(),
+      },
+    };
+    (prisma['$transaction'] as jest.Mock).mockImplementation(
+      async (fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock),
+    );
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AppointmentsService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+    service = module.get(AppointmentsService);
+  });
+
+  it('throws 403 when the user is deactivated', async () => {
+    (prisma['user'].findUnique as jest.Mock).mockResolvedValueOnce({
+      isActive: false,
+    });
+    await expect(service.bookSlot('u1', { slotId: 's1' })).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(prisma['$transaction']).not.toHaveBeenCalled();
+  });
+
+  it('throws 404 when the user does not exist', async () => {
+    (prisma['user'].findUnique as jest.Mock).mockResolvedValueOnce(null);
+    await expect(service.bookSlot('u1', { slotId: 's1' })).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('throws 404 when the slot does not exist (pre-flight)', async () => {
+    (prisma['user'].findUnique as jest.Mock).mockResolvedValueOnce({
+      isActive: true,
+    });
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce(null);
+    await expect(service.bookSlot('u1', { slotId: 'missing' })).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(prisma['$transaction']).not.toHaveBeenCalled();
+  });
+
+  it('throws 409 when the conditional updateMany returns count 0 (slot already booked)', async () => {
+    (prisma['user'].findUnique as jest.Mock).mockResolvedValueOnce({
+      isActive: true,
+    });
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+    });
+    (txMock['doctorSlot']['updateMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
+    await expect(service.bookSlot('u1', { slotId: 's1' })).rejects.toThrow(
+      ConflictException,
+    );
+    expect(txMock['doctorSlot']['findUniqueOrThrow']).not.toHaveBeenCalled();
+  });
+
+  it('throws 400 when the slot is in the past', async () => {
+    (prisma['user'].findUnique as jest.Mock).mockResolvedValueOnce({
+      isActive: true,
+    });
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+    });
+    (txMock['doctorSlot']['updateMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+    (
+      txMock['doctorSlot']['findUniqueOrThrow'] as jest.Mock
+    ).mockResolvedValueOnce({
+      doctorId: 'd1',
+      startsAt: new Date(Date.now() - 3600_000),
+      doctor: { status: 'ACTIVE', category: { status: 'ACTIVE' } },
+    });
+    await expect(service.bookSlot('u1', { slotId: 's1' })).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('throws 400 when the doctor is DEACTIVATED', async () => {
+    (prisma['user'].findUnique as jest.Mock).mockResolvedValueOnce({
+      isActive: true,
+    });
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+    });
+    (txMock['doctorSlot']['updateMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+    (
+      txMock['doctorSlot']['findUniqueOrThrow'] as jest.Mock
+    ).mockResolvedValueOnce({
+      doctorId: 'd1',
+      startsAt: new Date(Date.now() + 3600_000),
+      doctor: { status: 'DEACTIVATED', category: { status: 'ACTIVE' } },
+    });
+    await expect(service.bookSlot('u1', { slotId: 's1' })).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it("throws 400 when the doctor's category is DEACTIVATED", async () => {
+    (prisma['user'].findUnique as jest.Mock).mockResolvedValueOnce({
+      isActive: true,
+    });
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+    });
+    (txMock['doctorSlot']['updateMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+    (
+      txMock['doctorSlot']['findUniqueOrThrow'] as jest.Mock
+    ).mockResolvedValueOnce({
+      doctorId: 'd1',
+      startsAt: new Date(Date.now() + 3600_000),
+      doctor: { status: 'ACTIVE', category: { status: 'DEACTIVATED' } },
+    });
+    await expect(service.bookSlot('u1', { slotId: 's1' })).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('succeeds on the happy path: appointment created, slot BOOKED', async () => {
+    (prisma['user'].findUnique as jest.Mock).mockResolvedValueOnce({
+      isActive: true,
+    });
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+    });
+    (txMock['doctorSlot']['updateMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+    (
+      txMock['doctorSlot']['findUniqueOrThrow'] as jest.Mock
+    ).mockResolvedValueOnce({
+      doctorId: 'd1',
+      startsAt: new Date(Date.now() + 3600_000),
+      doctor: { status: 'ACTIVE', category: { status: 'ACTIVE' } },
+    });
+    (txMock['appointment']['create'] as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'PENDING',
+      scheduledAt: new Date(Date.now() + 3600_000),
+      patientNotes: 'checkup',
+      adminNotes: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      doctor: {
+        id: 'd1',
+        name: 'Dr. X',
+        category: { id: 'c1', name: 'Cardiology' },
+      },
+    });
+    const result = await service.bookSlot('u1', {
+      slotId: 's1',
+      patientNotes: 'checkup',
+    });
+    expect(result.appointment.id).toBe('a1');
+    expect(result.appointment.status).toBe('PENDING');
+    expect(result.appointment.doctor.category.name).toBe('Cardiology');
+    expect(txMock['doctorSlot']['updateMany']).toHaveBeenCalledWith({
+      where: { id: 's1', status: 'AVAILABLE' },
+      data: { status: 'BOOKED' },
+    });
+  });
+});
+
 // helper import
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';

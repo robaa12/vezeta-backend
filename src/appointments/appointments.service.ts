@@ -222,6 +222,18 @@ export class AppointmentsService {
       throw new ForbiddenException('Account is deactivated');
     }
 
+    // Pre-flight: distinguish 404 (no such slot) from 409 (slot is
+    // not AVAILABLE). Without this, a typo'd slotId would surface
+    // as 409 which is misleading. The conditional updateMany inside
+    // the transaction is still the source of truth for concurrency.
+    const existing = await this.prisma.doctorSlot.findUnique({
+      where: { id: dto.slotId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Slot not found');
+    }
+
     const appointment = await this.prisma.$transaction(async (tx) => {
       // 1. Atomic conditional update — only succeeds if slot is AVAILABLE
       const updated = await tx.doctorSlot.updateMany({
