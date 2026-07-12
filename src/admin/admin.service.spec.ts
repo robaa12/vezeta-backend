@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AdminService } from './admin.service.js';
@@ -231,5 +235,107 @@ describe('AdminService — Doctor CRUD smoke', () => {
     });
     prisma.doctor.delete.mockResolvedValueOnce({ id: 'd1' });
     await expect(service.deleteDoctor('d1')).resolves.toBeUndefined();
+  });
+});
+
+describe('AdminService — createDoctor categoryId validation (US2)', () => {
+  let service: AdminService;
+  let prisma: ReturnType<typeof mockPrisma>;
+
+  beforeEach(async () => {
+    prisma = mockPrisma();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get(AdminService);
+  });
+
+  it('createDoctor throws NotFound when the categoryId does not exist', async () => {
+    prisma.category.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      service.createDoctor({ name: 'Dr. X', categoryId: 'missing' }),
+    ).rejects.toThrow(NotFoundException);
+    expect(prisma.doctor.create).not.toHaveBeenCalled();
+  });
+
+  it('createDoctor throws BadRequest when the categoryId belongs to a DEACTIVATED category', async () => {
+    prisma.category.findUnique.mockResolvedValueOnce({
+      id: 'cat1',
+      status: 'DEACTIVATED',
+    });
+    await expect(
+      service.createDoctor({ name: 'Dr. X', categoryId: 'cat1' }),
+    ).rejects.toThrow(BadRequestException);
+    expect(prisma.doctor.create).not.toHaveBeenCalled();
+  });
+
+  it('createDoctor succeeds with a valid ACTIVE categoryId and includes category in the response', async () => {
+    prisma.category.findUnique.mockResolvedValueOnce({
+      id: 'cat1',
+      status: 'ACTIVE',
+    });
+    prisma.doctor.create.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'Dr. Y',
+      categoryId: 'cat1',
+      category: { id: 'cat1', name: 'Cardiology' },
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const doctor = await service.createDoctor({
+      name: 'Dr. Y',
+      categoryId: 'cat1',
+    });
+    expect(doctor.category).toEqual({ id: 'cat1', name: 'Cardiology' });
+    const createArgs = prisma.doctor.create.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(createArgs).toMatchObject({
+      data: expect.objectContaining({ categoryId: 'cat1' }),
+    });
+  });
+});
+
+describe('AdminService — listDoctors with categoryId filter (US2)', () => {
+  let service: AdminService;
+  let prisma: ReturnType<typeof mockPrisma>;
+
+  beforeEach(async () => {
+    prisma = mockPrisma();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get(AdminService);
+  });
+
+  it('passes categoryId as a where filter to the Prisma call', async () => {
+    prisma.doctor.findMany.mockResolvedValueOnce([]);
+    prisma.doctor.count.mockResolvedValueOnce(0);
+    await service.listDoctors({ categoryId: 'cat1' });
+    const where = prisma.doctor.findMany.mock.calls[0]?.[0]?.where as Record<
+      string,
+      unknown
+    >;
+    expect(where).toMatchObject({ categoryId: 'cat1' });
+  });
+
+  it('search OR matches category.name (not specialty)', async () => {
+    prisma.doctor.findMany.mockResolvedValueOnce([]);
+    prisma.doctor.count.mockResolvedValueOnce(0);
+    await service.listDoctors({ search: 'cardio' });
+    const where = prisma.doctor.findMany.mock.calls[0]?.[0]?.where as Record<
+      string,
+      unknown
+    >;
+    expect(where).toMatchObject({
+      OR: [
+        { name: { contains: 'cardio', mode: 'insensitive' } },
+        { category: { name: { contains: 'cardio', mode: 'insensitive' } } },
+      ],
+    });
   });
 });

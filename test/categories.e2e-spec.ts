@@ -374,4 +374,72 @@ describeMaybe('Doctor Categories (005-doctor-categories)', () => {
       expect(Array.isArray(body.categories)).toBe(true);
     });
   });
+
+  describe('US2 — Admin create doctor with required categoryId', () => {
+    let testCategoryId: string;
+    const createdDoctorIds: string[] = [];
+
+    beforeAll(async () => {
+      // Use the seeded seed_cardiology category for the happy path.
+      const cat = await prisma.category.findUnique({
+        where: { id: 'seed_cardiology' },
+      });
+      if (!cat)
+        throw new Error('seed_cardiology category missing — run seed first');
+      testCategoryId = cat.id;
+    });
+
+    afterAll(async () => {
+      if (createdDoctorIds.length) {
+        await prisma.doctor.deleteMany({
+          where: { id: { in: createdDoctorIds } },
+        });
+      }
+    });
+
+    it('creates a doctor with a valid ACTIVE categoryId (201) and includes category in the response', async () => {
+      const res = await request(server)
+        .post('/api/admin/doctors')
+        .set('Cookie', admin.cookie)
+        .send({ name: 'Dr. US2 Test', categoryId: testCategoryId });
+      expect(res.status).toBe(201);
+      const body = res.body as {
+        doctor: { id: string; category: { id: string; name: string } };
+      };
+      expect(body.doctor.id).toBeDefined();
+      expect(body.doctor.category).toEqual({
+        id: 'seed_cardiology',
+        name: 'Cardiology',
+      });
+      createdDoctorIds.push(body.doctor.id);
+    });
+
+    it('rejects create-doctor with missing categoryId (400)', async () => {
+      const res = await request(server)
+        .post('/api/admin/doctors')
+        .set('Cookie', admin.cookie)
+        .send({ name: 'Dr. No Category' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects create-doctor with a non-existent categoryId (404)', async () => {
+      const res = await request(server)
+        .post('/api/admin/doctors')
+        .set('Cookie', admin.cookie)
+        .send({ name: 'Dr. Bogus Cat', categoryId: 'cat_does_not_exist_xyz' });
+      expect(res.status).toBe(404);
+    });
+
+    it('rejects create-doctor with a DEACTIVATED categoryId (400)', async () => {
+      const deactivated = await prisma.category.create({
+        data: { name: `US2-Deact-${Date.now()}`, status: 'DEACTIVATED' },
+      });
+      createdIds.push(deactivated.id);
+      const res = await request(server)
+        .post('/api/admin/doctors')
+        .set('Cookie', admin.cookie)
+        .send({ name: 'Dr. Deact Cat', categoryId: deactivated.id });
+      expect(res.status).toBe(400);
+    });
+  });
 });
