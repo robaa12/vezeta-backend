@@ -339,3 +339,127 @@ describe('AdminService — listDoctors with categoryId filter (US2)', () => {
     });
   });
 });
+
+describe('AdminService — updateDoctor categoryId (US3)', () => {
+  let service: AdminService;
+  let prisma: ReturnType<typeof mockPrisma>;
+
+  beforeEach(async () => {
+    prisma = mockPrisma();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get(AdminService);
+  });
+
+  it('preserves the existing categoryId when not supplied', async () => {
+    prisma.doctor.findUnique.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'Dr. X',
+      categoryId: 'cat_existing',
+      category: { id: 'cat_existing', name: 'Cardiology' },
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    prisma.doctor.update.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'Dr. X renamed',
+      categoryId: 'cat_existing',
+      category: { id: 'cat_existing', name: 'Cardiology' },
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const result = await service.updateDoctor('d1', { name: 'Dr. X renamed' });
+    expect(result.category).toEqual({ id: 'cat_existing', name: 'Cardiology' });
+    const updateArgs = prisma.doctor.update.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    const data = updateArgs['data'] as Record<string, unknown>;
+    expect(data).not.toHaveProperty('categoryId');
+    expect(data).toMatchObject({ name: 'Dr. X renamed' });
+  });
+
+  it('updates the categoryId when a new valid ACTIVE categoryId is supplied', async () => {
+    prisma.doctor.findUnique.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'Dr. X',
+      categoryId: 'cat_old',
+      category: { id: 'cat_old', name: 'Cardiology' },
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    prisma.category.findUnique.mockResolvedValueOnce({
+      id: 'cat_new',
+      status: 'ACTIVE',
+    });
+    prisma.doctor.update.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'Dr. X',
+      categoryId: 'cat_new',
+      category: { id: 'cat_new', name: 'Pediatrics' },
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const result = await service.updateDoctor('d1', { categoryId: 'cat_new' });
+    expect(result.category).toEqual({ id: 'cat_new', name: 'Pediatrics' });
+    const updateArgs = prisma.doctor.update.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(updateArgs).toMatchObject({ data: { categoryId: 'cat_new' } });
+  });
+
+  it('rejects update with a non-existent categoryId (404)', async () => {
+    prisma.doctor.findUnique.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'Dr. X',
+      categoryId: 'cat_old',
+      category: { id: 'cat_old', name: 'Cardiology' },
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    prisma.category.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      service.updateDoctor('d1', { categoryId: 'cat_missing' }),
+    ).rejects.toThrow(NotFoundException);
+    expect(prisma.doctor.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects update with a DEACTIVATED categoryId (400)', async () => {
+    prisma.doctor.findUnique.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'Dr. X',
+      categoryId: 'cat_old',
+      category: { id: 'cat_old', name: 'Cardiology' },
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    prisma.category.findUnique.mockResolvedValueOnce({
+      id: 'cat_deact',
+      status: 'DEACTIVATED',
+    });
+    await expect(
+      service.updateDoctor('d1', { categoryId: 'cat_deact' }),
+    ).rejects.toThrow(BadRequestException);
+    expect(prisma.doctor.update).not.toHaveBeenCalled();
+  });
+});

@@ -623,4 +623,104 @@ describeMaybe('Doctor Categories (005-doctor-categories)', () => {
       expect(profile.status).toBe(404);
     });
   });
+
+  describe('US3 — Admin update doctor with optional categoryId', () => {
+    const createdDoctorIds: string[] = [];
+
+    afterAll(async () => {
+      if (createdDoctorIds.length) {
+        await prisma.doctor.deleteMany({
+          where: { id: { in: createdDoctorIds } },
+        });
+      }
+    });
+
+    it('updates a doctor to a new ACTIVE category (200) — category in response reflects the change', async () => {
+      const cardioId = 'seed_cardiology';
+      const pedId = 'seed_pediatrics';
+      const created = await prisma.doctor.create({
+        data: {
+          name: `Dr. US3 Reassign ${Date.now()}`,
+          categoryId: cardioId,
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(created.id);
+
+      const res = await request(server)
+        .patch(`/api/admin/doctors/${created.id}`)
+        .set('Cookie', admin.cookie)
+        .send({ categoryId: pedId });
+      expect(res.status).toBe(200);
+      const body = res.body as {
+        doctor: { category: { id: string; name: string } };
+      };
+      expect(body.doctor.category).toEqual({
+        id: pedId,
+        name: 'Pediatrics',
+      });
+    });
+
+    it('preserves the existing category when PATCH body omits categoryId (200)', async () => {
+      const created = await prisma.doctor.create({
+        data: {
+          name: `Dr. US3 Preserve ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(created.id);
+
+      const res = await request(server)
+        .patch(`/api/admin/doctors/${created.id}`)
+        .set('Cookie', admin.cookie)
+        .send({ bio: 'New bio only — category should be unchanged' });
+      expect(res.status).toBe(200);
+      const body = res.body as {
+        doctor: { category: { id: string }; bio: string | null };
+      };
+      expect(body.doctor.category.id).toBe('seed_cardiology');
+      expect(body.doctor.bio).toBe(
+        'New bio only — category should be unchanged',
+      );
+    });
+
+    it('rejects PATCH to a non-existent categoryId (404)', async () => {
+      const created = await prisma.doctor.create({
+        data: {
+          name: `Dr. US3 404 ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(created.id);
+
+      const res = await request(server)
+        .patch(`/api/admin/doctors/${created.id}`)
+        .set('Cookie', admin.cookie)
+        .send({ categoryId: 'cat_does_not_exist_xyz' });
+      expect(res.status).toBe(404);
+    });
+
+    it('rejects PATCH to a DEACTIVATED categoryId (400)', async () => {
+      const deact = await prisma.category.create({
+        data: { name: `US3-Deact-${Date.now()}`, status: 'DEACTIVATED' },
+      });
+      createdIds.push(deact.id);
+      const created = await prisma.doctor.create({
+        data: {
+          name: `Dr. US3 400 ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(created.id);
+
+      const res = await request(server)
+        .patch(`/api/admin/doctors/${created.id}`)
+        .set('Cookie', admin.cookie)
+        .send({ categoryId: deact.id });
+      expect(res.status).toBe(400);
+    });
+  });
 });
