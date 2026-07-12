@@ -1,9 +1,28 @@
 {
   "moduleFileExtensions": ["js", "json", "ts"],
-  "rootDir": ".",
+  "rootDir": "..",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "useESM": true,
+        "tsconfig": {
+          "module": "esnext",
+          "target": "es2023",
+          "moduleResolution": "bundler",
+          "esModuleInterop": true,
+          "emitDecoratorMetadata": true,
+          "experimentalDecorators": true,
+          "isolatedModules": true,
+          "verbatimModuleSyntax": false
+        }
+      }
+    ]
+  },
+  "extensionsToTreatAsEsm": [".ts"],
+  "moduleNameMapper": {
+    "^(\\.{1,2}/.*)\\.js$": "$1"
   }
 }

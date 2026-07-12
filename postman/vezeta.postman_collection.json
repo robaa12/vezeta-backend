@@ -1,0 +1,886 @@
+{
+  "info": {
+    "name": "Vezeeta Backend API",
+    "description": "REST API for the Vezeeta backend.\n\nAuth is handled by Better Auth at /api/auth/* (sign-up, sign-in, sign-out, email/phone OTP, sessions, social providers). The session cookie `vezeta.session_token` is set automatically by the auth endpoints and sent back by Postman's cookie jar on subsequent requests.\n\nPair with the live Swagger UI at /api/docs and the source requests file `requests.http`.\n\n## Roles (003-remove-doctor-role)\n\nThe platform has two roles only: `user` and `admin`. There is NO `doctor` role. Doctors are a standalone CRUD entity managed by admins — they cannot log in.\n  - **user**  (`userEmail` / `userPassword`) — any consumer. Hits `/api/me`, gets 403 on admin routes.\n  - **admin** (`adminEmail` / `adminPassword`) — the seeded super admin (`admin@vezeta.local` / `ChangeMe123!`).\n\n## Module 2 — Public Doctor Search (004-doctor-search)\n\nThe patient-facing doctor surface is **anonymous** (no cookie, no Authorization header required). These endpoints read the same `Doctor` table that admins manage via the CRUD in section 3.\n  - `GET /api/doctors` — paginated, filterable list of ACTIVE doctors.\n  - `GET /api/doctors/:id` — public doctor profile (404 for DEACTIVATED).\n  - `GET /api/specialties` — distinct specialties from ACTIVE doctors.\n\nAll three return `Cache-Control: public, max-age=N` headers and are rate-limited per IP via `@nestjs/throttler`.\n\n## Test personas & flow\n\n  1. **Health**\n  2. **Auth → Sign Up User**  (creates a regular `user` account)\n  3. **Auth → Send Email Verification OTP**  → check `docker compose logs app | grep email-otp`, paste code into `lastEmailOtp`\n  4. **Auth → Verify Email OTP**  (sets `emailVerified=true`)\n  5. **Auth → Sign In (as admin)**  (required before calling any admin endpoint)\n  6. **Admin → Create Doctor**  (admin creates a standalone doctor record; auto-fills `doctorId`)\n  7. **Admin → List Doctors**\n  8. **Admin → Get Doctor by id**\n  9. **Admin → Update Doctor**\n 10. **Admin → Deactivate Doctor**  (soft; reversible)\n 11. **Admin → Delete Doctor**  (hard delete)\n 12. **Admin → Get User by id**\n 13. **Admin → Change User Role**  (promote / demote; last-admin guard)\n 14. **Public Doctor Search → List Doctors**  (no auth; auto-fills `doctorId`)\n 15. **Public Doctor Search → Get Doctor by id**  (no auth)\n 16. **Public Doctor Search → List Specialties**  (no auth)\n 17. **Auth → Sign Out**\n\n## OTP helper\n\nThe app's `sendEmailOTP` / `sendPhoneOTP` stubs (see `src/auth/auth.ts`) only `console.log` OTPs when `NODE_ENV !== 'production'`. After calling a Send OTP request, run `docker compose logs app | grep email-otp | tail -1` (or `phone-otp`) and paste the 6-digit code into the corresponding collection variable (`lastEmailOtp` or `lastPhoneOtp`) before calling the matching Verify request.\n\n## Removed in 003-remove-doctor-role\n\n- `POST /api/auth/sign-up/email` with `role: \"doctor\"` or `role: \"admin\"` — only `role: \"user\"` is accepted (or omitted).\n- `GET /api/doctors/test-route` — no doctor-only routes exist.\n- `PATCH /api/admin/doctors/:id/approve` / `reject` / `suspend` — replaced by CRUD on standalone `Doctor` records.\n- `?status=PENDING|APPROVED|REJECTED|SUSPENDED` — replaced by `?status=ACTIVE|DEACTIVATED`.\n- Auto-creation of `DoctorProfile` on doctor email+phone verification — no longer exists.\n\n## Added in 004-doctor-search\n\n- `GET /api/doctors` — anonymous list with `specialty` / `search` / `page` / `pageSize` query params. `Cache-Control: public, max-age=60`.\n- `GET /api/doctors/:id` — anonymous profile, 404 for DEACTIVATED. `Cache-Control: public, max-age=300`.\n- `GET /api/specialties` — anonymous distinct specialties. `Cache-Control: public, max-age=600`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+  },
+  "item": [
+    {
+      "name": "1. Health",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Liveness probe. Public."
+          }
+        },
+        {
+          "name": "Admin Ping",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/ping",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "ping"]
+            },
+            "description": "Admin module liveness probe. Public."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Auth",
+      "item": [
+        {
+          "name": "Sign Up User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Origin", "value": "{{baseUrl}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane User\",\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\",\n  \"role\": \"user\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-up/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-up", "email"]
+            },
+            "description": "Better Auth sign-up for a regular user. The `role` field MUST be `\"user\"` (or omitted). Any other value (e.g. \"doctor\", \"admin\") is rejected with 400. Auto signs in and sets the session cookie."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('sign-up returns 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('role is user', () => pm.expect(body.user.role).to.eql('user'));",
+                  "if (body.user && body.user.id) pm.collectionVariables.set('userId', body.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign Up — reject doctor role (negative)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Origin", "value": "{{baseUrl}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hacker\",\n  \"email\": \"hacker-{{$timestamp}}@example.com\",\n  \"password\": \"ChangeMe123!\",\n  \"role\": \"doctor\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-up/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-up", "email"]
+            },
+            "description": "Expect 400 — the `doctor` role is no longer in the enum. Self-registration can only produce `role: \"user\"`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 400 for role=doctor', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign Up — reject admin role (negative)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Origin", "value": "{{baseUrl}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hacker\",\n  \"email\": \"hacker-admin-{{$timestamp}}@example.com\",\n  \"password\": \"ChangeMe123!\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-up/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-up", "email"]
+            },
+            "description": "Expect 400 — the `admin` role is never self-assignable. Admins are seeded or promoted out of band."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 400 for role=admin', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Send Email Verification OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Origin", "value": "{{baseUrl}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"type\": \"email-verification\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/email-otp/send-verification-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "email-otp", "send-verification-otp"]
+            },
+            "description": "Triggers an email OTP. After sending, run `docker compose logs app | grep email-otp | tail -1` and paste the 6-digit code into the `lastEmailOtp` collection variable before calling Verify Email OTP."
+          }
+        },
+        {
+          "name": "Verify Email OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Origin", "value": "{{baseUrl}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"otp\": \"{{lastEmailOtp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/email-otp/verify-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "email-otp", "verify-email"]
+            },
+            "description": "Reads `lastEmailOtp` (paste from app logs after Send Email Verification OTP). Flips `emailVerified=true` on the user. In the new model, this does NOT create a doctor profile — doctors are a separate CRUD entity."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('verify-email returns 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('emailVerified is true', () => pm.expect(body.user.emailVerified).to.eql(true));",
+                  "pm.test('role is user', () => pm.expect(body.user.role).to.eql('user'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign In (as admin by default)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Origin", "value": "{{baseUrl}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-in/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-in", "email"]
+            },
+            "description": "Sign in as the seeded super admin. Swap the body to `{{userEmail}}` / `{{userPassword}}` to sign in as the regular user persona."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('sign-in returns 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('user role present', () => pm.expect(body.user.role).to.be.oneOf(['user', 'admin']));",
+                  "if (body.user && body.user.id) pm.collectionVariables.set('userId', body.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User (/api/me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me"]
+            },
+            "description": "Returns the session user resolved from the Better Auth cookie. The response does NOT include a `doctorProfile` field (DoctorProfile is gone); it MAY include `linkedSocialProviders` if the user has linked Google or Facebook."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 200 with a session', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('has id, email, role', () => {",
+                  "  pm.expect(body).to.have.property('id');",
+                  "  pm.expect(body).to.have.property('email');",
+                  "  pm.expect(body).to.have.property('role');",
+                  "});",
+                  "pm.test('no doctorProfile field', () => pm.expect(body).to.not.have.property('doctorProfile'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign Out",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Origin", "value": "{{baseUrl}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "sign-out"]
+            },
+            "description": "Clears the session cookie in the jar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('sign-out returns 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Admin — Doctor CRUD (requires role=admin)",
+      "item": [
+        {
+          "name": "Create Doctor",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dr. Jane Smith\",\n  \"specialty\": \"Cardiology\",\n  \"bio\": \"20 years of experience in interventional cardiology.\",\n  \"imageUrl\": \"https://cdn.example.com/jane.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors"]
+            },
+            "description": "Create a new standalone Doctor record. The new doctor is immediately `ACTIVE`. Auto-fills `doctorId` from the response."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('doctor.status is ACTIVE', () => pm.expect(body.doctor.status).to.eql('ACTIVE'));",
+                  "if (body.doctor && body.doctor.id) pm.collectionVariables.set('doctorId', body.doctor.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Doctors (no filter)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors"]
+            },
+            "description": "List all doctors with default pagination (page=1, pageSize=20). Response shape: `{ doctors, total, page, pageSize }`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('has doctors array, total, page, pageSize', () => {",
+                  "  pm.expect(body).to.have.property('doctors').that.is.an('array');",
+                  "  pm.expect(body).to.have.property('total').that.is.a('number');",
+                  "  pm.expect(body).to.have.property('page').that.is.a('number');",
+                  "  pm.expect(body).to.have.property('pageSize').that.is.a('number');",
+                  "});",
+                  "if (body.doctors && body.doctors.length) {",
+                  "  pm.collectionVariables.set('doctorId', body.doctors[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Doctors (status=ACTIVE)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors?status=ACTIVE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors"],
+              "query": [
+                { "key": "status", "value": "ACTIVE", "description": "Filter by status: ACTIVE | DEACTIVATED. Omit to list all." }
+              ]
+            },
+            "description": "Filter doctors by status. The new enum is `ACTIVE | DEACTIVATED` (replaced the old `PENDING | APPROVED | REJECTED | SUSPENDED`)."
+          }
+        },
+        {
+          "name": "List Doctors (search + specialty)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors?specialty=Cardiology&search=Jane&page=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors"],
+              "query": [
+                { "key": "specialty", "value": "Cardiology", "description": "Exact match on specialty." },
+                { "key": "search", "value": "Jane", "description": "Case-insensitive substring on name or specialty." },
+                { "key": "page", "value": "1", "description": "1-based page number." },
+                { "key": "pageSize", "value": "10", "description": "Items per page (max 100)." }
+              ]
+            },
+            "description": "Combined filter + pagination example."
+          }
+        },
+        {
+          "name": "Get Doctor by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors/{{doctorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors", "{{doctorId}}"]
+            },
+            "description": "Fetch a single doctor by id. Returns 404 if not found."
+          }
+        },
+        {
+          "name": "Update Doctor (partial)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"specialty\": \"Pediatric Cardiology\",\n  \"bio\": \"Updated bio.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors/{{doctorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors", "{{doctorId}}"]
+            },
+            "description": "Partial update — only the provided fields are changed. At least one field is required (else 409)."
+          }
+        },
+        {
+          "name": "Deactivate Doctor",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors/{{doctorId}}/deactivate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors", "{{doctorId}}", "deactivate"]
+            },
+            "description": "Soft-deactivate: sets `status=DEACTIVATED`. Reversible via Update Doctor (set `status: \"ACTIVE\"`). Returns 409 if already deactivated. Replaces the old `/suspend` endpoint."
+          }
+        },
+        {
+          "name": "Delete Doctor (hard)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors/{{doctorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors", "{{doctorId}}"]
+            },
+            "description": "Hard-delete the doctor. Allowed in v1 (no appointments table yet). When the appointments feature lands, this will return 409 if the doctor has historical bookings."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Admin — User management (requires role=admin)",
+      "item": [
+        {
+          "name": "Get User by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "users", "{{userId}}"]
+            },
+            "description": "Fetch a user by id. The response does NOT include a `doctorProfile` field (DoctorProfile is gone)."
+          }
+        },
+        {
+          "name": "Change User Role (promote / demote)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/{{userId}}/role",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "users", "{{userId}}", "role"]
+            },
+            "description": "Promote a `user` to `admin` (or demote back). Returns 409 `last_admin` if the change would leave the system with zero active admins. `role` MUST be `user` or `admin`; any other value returns 400."
+          }
+        },
+        {
+          "name": "Change User Role — last-admin guard (negative)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"user\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/{{userId}}/role",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "users", "{{userId}}", "role"]
+            },
+            "description": "Expect 409 with `error: \"last_admin\"` if this is the last active admin. Sign in as a different admin first (or promote a second admin) before running."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.expect([409, 200]).to.include(pm.response.code);",
+                  "if (pm.response.code === 409) {",
+                  "  pm.test('last_admin error code', () => pm.expect(body.error).to.eql('last_admin'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deactivate User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/{{userId}}/deactivate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "users", "{{userId}}", "deactivate"]
+            },
+            "description": "Deactivate a user account. Also invalidates all of the user's active sessions."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Public Doctor Search (Module 2 — no auth required)",
+      "item": [
+        {
+          "name": "List Doctors (no filter)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors"]
+            },
+            "description": "Anonymous-accessible listing of ACTIVE doctors. No cookie, no Authorization header required. Response shape: `{ doctors, total, page, pageSize }`. Auto-fills `doctorId` from the first result."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 200 without auth', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('has doctors array, total, page, pageSize', () => {",
+                  "  pm.expect(body).to.have.property('doctors').that.is.an('array');",
+                  "  pm.expect(body).to.have.property('total').that.is.a('number');",
+                  "  pm.expect(body).to.have.property('page').that.is.a('number');",
+                  "  pm.expect(body).to.have.property('pageSize').that.is.a('number');",
+                  "});",
+                  "if (body.doctors && body.doctors.length) {",
+                  "  pm.collectionVariables.set('doctorId', body.doctors[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Doctors (specialty filter)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors?specialty=Cardiology",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors"],
+              "query": [
+                { "key": "specialty", "value": "Cardiology", "description": "Exact match on the doctor's specialty." }
+              ]
+            },
+            "description": "Filter the listing by specialty. Exact match. Empty array if no doctor matches."
+          }
+        },
+        {
+          "name": "List Doctors (search)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors?search=Smith",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors"],
+              "query": [
+                { "key": "search", "value": "Smith", "description": "Case-insensitive substring on name + specialty." }
+              ]
+            },
+            "description": "Search the listing by a substring. Case-insensitive. Matches against both `name` and `specialty`."
+          }
+        },
+        {
+          "name": "List Doctors (specialty + search combined)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors?specialty=Cardiology&search=Jane",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors"],
+              "query": [
+                { "key": "specialty", "value": "Cardiology" },
+                { "key": "search", "value": "Jane" }
+              ]
+            },
+            "description": "Combined filter. Both conditions must match (AND)."
+          }
+        },
+        {
+          "name": "List Doctors (pagination)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors?page=1&pageSize=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors"],
+              "query": [
+                { "key": "page", "value": "1", "description": "1-based page number." },
+                { "key": "pageSize", "value": "5", "description": "Items per page (1-100)." }
+              ]
+            },
+            "description": "Pagination example. `pageSize` is capped at 100; values >100 return 400."
+          }
+        },
+        {
+          "name": "Get Doctor by id (public profile)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/{{doctorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "{{doctorId}}"]
+            },
+            "description": "Public doctor profile. 200 for ACTIVE doctors, 404 for DEACTIVATED or non-existent ids (the two cases are indistinguishable to prevent information leakage). No auth required."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 200 or 404', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('doctor has id, name, specialty', () => {",
+                  "    pm.expect(body.doctor).to.have.property('id');",
+                  "    pm.expect(body.doctor).to.have.property('name');",
+                  "    pm.expect(body.doctor).to.have.property('specialty');",
+                  "  });",
+                  "  pm.test('status is ACTIVE', () => pm.expect(body.doctor.status).to.eql('ACTIVE'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Doctor — non-existent (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/this-id-does-not-exist",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "this-id-does-not-exist"]
+            },
+            "description": "Expect 404 — generic not-found response (no info leakage about whether the id ever existed)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Specialties",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/specialties",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "specialties"]
+            },
+            "description": "Distinct list of specialties from ACTIVE doctors, sorted alphabetically. Use to populate the specialty filter dropdown. No auth required."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('specialties is an array', () => pm.expect(body.specialties).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Negative cases",
+      "item": [
+        {
+          "name": "GET /api/me without session",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me"]
+            },
+            "description": "Expect 401. Run this AFTER Sign Out (or in a fresh session)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/admin/doctors as a non-admin (user)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors"]
+            },
+            "description": "Expect 403 when the session belongs to a regular `user`. Sign out, then sign in as the user (`{{userEmail}}` / `{{userPassword}}`) before running."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/admin/doctors as a non-admin (user)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Should Fail\",\n  \"specialty\": \"Test\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/doctors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "doctors"]
+            },
+            "description": "Expect 403 when a regular `user` attempts to create a doctor. Sign in as the user before running."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/doctors/test-route returns 404 (removed)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/doctors/test-route",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "doctors", "test-route"]
+            },
+            "description": "Expect 404. The old doctor-only smoke test route was removed in 003-remove-doctor-role (doctors are no longer users; no doctor-only routes exist)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "default" },
+    { "key": "adminEmail", "value": "admin@vezeta.local", "type": "default" },
+    { "key": "adminPassword", "value": "ChangeMe123!", "type": "default" },
+    { "key": "userEmail", "value": "jane.user@example.com", "type": "default" },
+    { "key": "userPassword", "value": "ChangeMe123!", "type": "default" },
+    { "key": "lastEmailOtp", "value": "", "type": "default" },
+    { "key": "doctorId", "value": "", "type": "default" },
+    { "key": "userId", "value": "", "type": "default" }
+  ]
+}
