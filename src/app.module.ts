@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { DoctorsModule } from './doctors/doctors.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
+import { AppointmentsModule } from './appointments/appointments.module.js';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware.js';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware.js';
 
@@ -24,6 +25,7 @@ import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware.j
     AdminModule,
     DoctorsModule,
     CategoriesModule,
+    AppointmentsModule,
   ],
 })
 export class AppModule implements NestModule {
