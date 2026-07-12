@@ -529,6 +529,74 @@ describe('AppointmentsService — bookSlot (US2)', () => {
   });
 });
 
+describe('AppointmentsService — listMyAppointments (US4)', () => {
+  let service: AppointmentsService;
+  let prisma: Record<string, unknown>;
+
+  beforeEach(async () => {
+    prisma = {
+      user: { findUnique: jest.fn() },
+      doctor: { findUnique: jest.fn() },
+      doctorSlot: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+        delete: jest.fn(),
+      },
+      appointment: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AppointmentsService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+    service = module.get(AppointmentsService);
+  });
+
+  it('filters by userId (the WHERE clause must include the authenticated user)', async () => {
+    (prisma['appointment'].findMany as jest.Mock).mockResolvedValueOnce([]);
+    (prisma['appointment'].count as jest.Mock).mockResolvedValueOnce(0);
+    await service.listMyAppointments('u1', {});
+    const where = (prisma['appointment'].findMany as jest.Mock).mock
+      .calls[0]?.[0]?.where as Record<string, unknown>;
+    expect(where).toMatchObject({ userId: 'u1' });
+  });
+
+  it('applies optional status filter', async () => {
+    (prisma['appointment'].findMany as jest.Mock).mockResolvedValueOnce([]);
+    (prisma['appointment'].count as jest.Mock).mockResolvedValueOnce(0);
+    await service.listMyAppointments('u1', { status: 'CONFIRMED' });
+    const where = (prisma['appointment'].findMany as jest.Mock).mock
+      .calls[0]?.[0]?.where as Record<string, unknown>;
+    expect(where).toMatchObject({ userId: 'u1', status: 'CONFIRMED' });
+  });
+
+  it('paginates with default page=1 pageSize=20', async () => {
+    (prisma['appointment'].findMany as jest.Mock).mockResolvedValueOnce([]);
+    (prisma['appointment'].count as jest.Mock).mockResolvedValueOnce(0);
+    await service.listMyAppointments('u1', {});
+    const args = (prisma['appointment'].findMany as jest.Mock).mock
+      .calls[0]?.[0];
+    expect(args).toMatchObject({
+      skip: 0,
+      take: 20,
+      orderBy: { scheduledAt: 'asc' },
+    });
+  });
+});
+
 // helper import
 import {
   BadRequestException,

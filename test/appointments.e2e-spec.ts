@@ -716,6 +716,211 @@ describeMaybe('Appointments & Booking (006-appointments-booking)', () => {
       createdAppointmentIds.push(apptId);
     });
   });
+
+  describe('US4 — Patient lists own appointments', () => {
+    const createdDoctorIds: string[] = [];
+    const createdSlotIds: string[] = [];
+    const createdAppointmentIds: string[] = [];
+    const createdUserIds: string[] = [];
+
+    afterAll(async () => {
+      if (createdAppointmentIds.length) {
+        await prisma.appointment.deleteMany({
+          where: { id: { in: createdAppointmentIds } },
+        });
+      }
+      if (createdSlotIds.length) {
+        await prisma.doctorSlot.deleteMany({
+          where: { id: { in: createdSlotIds } },
+        });
+      }
+      if (createdDoctorIds.length) {
+        await prisma.doctor.deleteMany({
+          where: { id: { in: createdDoctorIds } },
+        });
+      }
+      if (createdUserIds.length) {
+        await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+      }
+    });
+
+    it('rejects unauthenticated (401)', async () => {
+      const res = await request(server).get('/api/appointments');
+      expect(res.status).toBe(401);
+    });
+
+    it("returns 200 with the patient's own appointments, scoped to userId", async () => {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        20_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US4 ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+
+      // Book two slots
+      const slotIdsLocal: string[] = [];
+      for (let i = 0; i < 2; i++) {
+        const slot = await prisma.doctorSlot.create({
+          data: {
+            doctorId: doc.id,
+            startsAt: new Date(Date.now() + (i + 1) * 3600_000),
+            endsAt: new Date(Date.now() + (i + 1) * 3600_000 + 1800_000),
+            status: 'BOOKED',
+          },
+        });
+        slotIdsLocal.push(slot.id);
+        createdSlotIds.push(slot.id);
+        const appt = await prisma.appointment.create({
+          data: {
+            userId: patient.userId,
+            doctorId: doc.id,
+            slotId: slot.id,
+            scheduledAt: slot.startsAt,
+            status: 'PENDING',
+          },
+        });
+        createdAppointmentIds.push(appt.id);
+      }
+
+      const res = await request(server)
+        .get('/api/appointments')
+        .set('Cookie', patient.cookie);
+      expect(res.status).toBe(200);
+      const body = res.body as {
+        appointments: Array<{
+          id: string;
+          doctor: { category: { name: string } };
+        }>;
+        total: number;
+        page: number;
+        pageSize: number;
+      };
+      const ids = body.appointments.map((a) => a.id);
+      for (const apptId of createdAppointmentIds) {
+        expect(ids).toContain(apptId);
+      }
+      expect(body.total).toBeGreaterThanOrEqual(2);
+      body.appointments.forEach((a) =>
+        expect(a.doctor.category.name).toBe('Cardiology'),
+      );
+    });
+
+    it("does NOT show other patients' appointments (cross-patient privacy)", async () => {
+      const a = await getPatientSession(
+        server,
+        prisma,
+        30_000 + Math.floor(Math.random() * 1000),
+      );
+      const b = await getPatientSession(
+        server,
+        prisma,
+        40_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(a.userId, b.userId);
+
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US4 Privacy ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+      const slot = await prisma.doctorSlot.create({
+        data: {
+          doctorId: doc.id,
+          startsAt: new Date(Date.now() + 3600_000),
+          endsAt: new Date(Date.now() + 5400_000),
+          status: 'BOOKED',
+        },
+      });
+      createdSlotIds.push(slot.id);
+
+      const apptA = await prisma.appointment.create({
+        data: {
+          userId: a.userId,
+          doctorId: doc.id,
+          slotId: slot.id,
+          scheduledAt: slot.startsAt,
+          status: 'PENDING',
+        },
+      });
+      createdAppointmentIds.push(apptA.id);
+
+      const res = await request(server)
+        .get('/api/appointments')
+        .set('Cookie', b.cookie);
+      expect(res.status).toBe(200);
+      const body = res.body as { appointments: Array<{ id: string }> };
+      const ids = body.appointments.map((x) => x.id);
+      expect(ids).not.toContain(apptA.id);
+    });
+
+    it('applies ?status= filter', async () => {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        50_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US4 Filter ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+      const slot = await prisma.doctorSlot.create({
+        data: {
+          doctorId: doc.id,
+          startsAt: new Date(Date.now() + 3600_000),
+          endsAt: new Date(Date.now() + 5400_000),
+          status: 'BOOKED',
+        },
+      });
+      createdSlotIds.push(slot.id);
+      const appt = await prisma.appointment.create({
+        data: {
+          userId: patient.userId,
+          doctorId: doc.id,
+          slotId: slot.id,
+          scheduledAt: slot.startsAt,
+          status: 'CONFIRMED',
+        },
+      });
+      createdAppointmentIds.push(appt.id);
+
+      const ok = await request(server)
+        .get('/api/appointments?status=CONFIRMED')
+        .set('Cookie', patient.cookie);
+      expect(ok.status).toBe(200);
+      const okBody = ok.body as {
+        appointments: Array<{ id: string; status: string }>;
+      };
+      expect(okBody.appointments.find((a) => a.id === appt.id)).toBeDefined();
+      okBody.appointments.forEach((a) => expect(a.status).toBe('CONFIRMED'));
+
+      const empty = await request(server)
+        .get('/api/appointments?status=PENDING')
+        .set('Cookie', patient.cookie);
+      expect(empty.status).toBe(200);
+      const emptyBody = empty.body as { appointments: Array<{ id: string }> };
+      expect(
+        emptyBody.appointments.find((a) => a.id === appt.id),
+      ).toBeUndefined();
+    });
+  });
 });
 
 // Helper exports for use by other test files in this suite
