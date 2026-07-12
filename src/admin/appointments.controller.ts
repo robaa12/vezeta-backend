@@ -29,6 +29,7 @@ import { AppointmentsService } from '../appointments/appointments.service.js';
 import { CreateSlotDto } from '../appointments/dto/create-slot.dto.js';
 import { UpdateSlotDto } from '../appointments/dto/update-slot.dto.js';
 import { ListAdminSlotsDto } from '../appointments/dto/list-admin-slots.dto.js';
+import type { AppointmentResponseDto } from '../appointments/dto/appointment-response.dto.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
 import type {
@@ -120,5 +121,54 @@ export class AdminAppointmentsController {
   })
   async deleteSlot(@Param('id') id: string): Promise<void> {
     await this.appointmentsService.deleteSlot(id);
+  }
+
+  // ---------------- Appointment lifecycle ----------------
+
+  @Patch('appointments/:id/confirm')
+  @ApiOperation({ summary: 'Confirm a PENDING appointment (admin)' })
+  @ApiParam({ name: 'id', description: 'Appointment id (cuid)' })
+  @ApiOkResponse({ description: 'Appointment confirmed.' })
+  @ApiNotFoundResponse({ description: 'Appointment not found.' })
+  @ApiConflictResponse({
+    description: 'Appointment is not in PENDING status.',
+  })
+  confirmAppointment(
+    @Param('id') id: string,
+  ): Promise<{ appointment: AppointmentResponseDto }> {
+    return this.appointmentsService.confirmAppointment(id);
+  }
+
+  @Patch('appointments/:id/cancel')
+  @ApiOperation({ summary: 'Cancel any appointment (admin)' })
+  @ApiParam({ name: 'id', description: 'Appointment id (cuid)' })
+  @ApiOkResponse({ description: 'Appointment cancelled; slot released.' })
+  @ApiNotFoundResponse({ description: 'Appointment not found.' })
+  @ApiConflictResponse({
+    description: 'Appointment is already CANCELLED or COMPLETED.',
+  })
+  cancelAppointment(
+    @Param('id') id: string,
+  ): Promise<{ appointment: AppointmentResponseDto }> {
+    return this.appointmentsService.cancelAppointment(id);
+  }
+
+  @Patch('appointments/:id/complete')
+  @ApiOperation({
+    summary: 'Mark a CONFIRMED appointment as completed (admin)',
+  })
+  @ApiParam({ name: 'id', description: 'Appointment id (cuid)' })
+  @ApiOkResponse({ description: 'Appointment completed.' })
+  @ApiBadRequestResponse({
+    description: 'scheduledAt is in the future.',
+  })
+  @ApiNotFoundResponse({ description: 'Appointment not found.' })
+  @ApiConflictResponse({
+    description: 'Appointment is not in CONFIRMED status.',
+  })
+  completeAppointment(
+    @Param('id') id: string,
+  ): Promise<{ appointment: AppointmentResponseDto }> {
+    return this.appointmentsService.completeAppointment(id);
   }
 }

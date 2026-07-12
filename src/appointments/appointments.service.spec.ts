@@ -597,6 +597,101 @@ describe('AppointmentsService — listMyAppointments (US4)', () => {
   });
 });
 
+describe('AppointmentsService — confirmAppointment (US3)', () => {
+  let service: AppointmentsService;
+  let prisma: Record<string, unknown>;
+
+  beforeEach(async () => {
+    prisma = {
+      user: { findUnique: jest.fn() },
+      doctor: { findUnique: jest.fn() },
+      doctorSlot: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+        delete: jest.fn(),
+      },
+      appointment: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AppointmentsService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+    service = module.get(AppointmentsService);
+  });
+
+  it('throws 404 for a non-existent appointment', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce(null);
+    await expect(service.confirmAppointment('a1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('throws 409 for a CONFIRMED appointment', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'CONFIRMED',
+    });
+    await expect(service.confirmAppointment('a1')).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('throws 409 for a CANCELLED appointment', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'CANCELLED',
+    });
+    await expect(service.confirmAppointment('a1')).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('succeeds for a PENDING appointment (200)', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'PENDING',
+    });
+    (prisma['appointment'].update as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'CONFIRMED',
+      scheduledAt: new Date(),
+      patientNotes: null,
+      adminNotes: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      doctor: {
+        id: 'd1',
+        name: 'Dr. X',
+        category: { id: 'c1', name: 'Cardiology' },
+      },
+    });
+    const result = await service.confirmAppointment('a1');
+    expect(result.appointment.status).toBe('CONFIRMED');
+    const updateArgs = (prisma['appointment'].update as jest.Mock).mock
+      .calls[0]?.[0];
+    expect(updateArgs).toMatchObject({
+      where: { id: 'a1' },
+      data: { status: 'CONFIRMED' },
+    });
+  });
+});
+
 // helper import
 import {
   BadRequestException,

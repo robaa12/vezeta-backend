@@ -921,6 +921,153 @@ describeMaybe('Appointments & Booking (006-appointments-booking)', () => {
       ).toBeUndefined();
     });
   });
+
+  describe('US3 — Admin confirms a PENDING appointment', () => {
+    let admin: AdminSession;
+    const createdDoctorIds: string[] = [];
+    const createdSlotIds: string[] = [];
+    const createdAppointmentIds: string[] = [];
+    const createdUserIds: string[] = [];
+
+    beforeAll(async () => {
+      admin = await getAdminSession(server);
+    });
+
+    afterAll(async () => {
+      if (createdAppointmentIds.length) {
+        await prisma.appointment.deleteMany({
+          where: { id: { in: createdAppointmentIds } },
+        });
+      }
+      if (createdSlotIds.length) {
+        await prisma.doctorSlot.deleteMany({
+          where: { id: { in: createdSlotIds } },
+        });
+      }
+      if (createdDoctorIds.length) {
+        await prisma.doctor.deleteMany({
+          where: { id: { in: createdDoctorIds } },
+        });
+      }
+      if (createdUserIds.length) {
+        await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+      }
+    });
+
+    async function createPendingAppointment(): Promise<{
+      apptId: string;
+      patientCookie: string;
+    }> {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        60_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US3 ${Date.now()}-${Math.random()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+      const slot = await prisma.doctorSlot.create({
+        data: {
+          doctorId: doc.id,
+          startsAt: new Date(Date.now() + 3600_000),
+          endsAt: new Date(Date.now() + 5400_000),
+          status: 'BOOKED',
+        },
+      });
+      createdSlotIds.push(slot.id);
+      const appt = await prisma.appointment.create({
+        data: {
+          userId: patient.userId,
+          doctorId: doc.id,
+          slotId: slot.id,
+          scheduledAt: slot.startsAt,
+          status: 'PENDING',
+        },
+      });
+      createdAppointmentIds.push(appt.id);
+      return { apptId: appt.id, patientCookie: patient.cookie };
+    }
+
+    it('rejects unauthenticated (401)', async () => {
+      const res = await request(server).patch(
+        '/api/admin/appointments/some-id/confirm',
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects non-admin (403)', async () => {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        70_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+      const res = await request(server)
+        .patch('/api/admin/appointments/some-id/confirm')
+        .set('Cookie', patient.cookie);
+      expect(res.status).toBe(403);
+    });
+
+    it('confirms a PENDING appointment (200) — status flips to CONFIRMED', async () => {
+      const { apptId, patientCookie } = await createPendingAppointment();
+
+      const res = await request(server)
+        .patch(`/api/admin/appointments/${apptId}/confirm`)
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(200);
+      const body = res.body as { appointment: { status: string } };
+      expect(body.appointment.status).toBe('CONFIRMED');
+
+      // The patient sees the new status in their listing
+      const list = await request(server)
+        .get('/api/appointments')
+        .set('Cookie', patientCookie);
+      const listBody = list.body as {
+        appointments: Array<{ id: string; status: string }>;
+      };
+      const found = listBody.appointments.find((a) => a.id === apptId);
+      expect(found?.status).toBe('CONFIRMED');
+    });
+
+    it('returns 409 for a second confirm on a CONFIRMED appointment', async () => {
+      const { apptId } = await createPendingAppointment();
+      const first = await request(server)
+        .patch(`/api/admin/appointments/${apptId}/confirm`)
+        .set('Cookie', admin.cookie);
+      expect(first.status).toBe(200);
+      const second = await request(server)
+        .patch(`/api/admin/appointments/${apptId}/confirm`)
+        .set('Cookie', admin.cookie);
+      expect(second.status).toBe(409);
+    });
+
+    it('returns 409 for confirming a CANCELLED appointment', async () => {
+      const { apptId } = await createPendingAppointment();
+      // Cancel first (admin override)
+      const cancel = await request(server)
+        .patch(`/api/admin/appointments/${apptId}/cancel`)
+        .set('Cookie', admin.cookie);
+      expect(cancel.status).toBe(200);
+      const confirm = await request(server)
+        .patch(`/api/admin/appointments/${apptId}/confirm`)
+        .set('Cookie', admin.cookie);
+      expect(confirm.status).toBe(409);
+    });
+
+    it('returns 404 for an unknown appointment id', async () => {
+      const res = await request(server)
+        .patch('/api/admin/appointments/appointment_does_not_exist/confirm')
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(404);
+    });
+  });
 });
 
 // Helper exports for use by other test files in this suite
