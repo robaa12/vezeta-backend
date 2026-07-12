@@ -442,4 +442,185 @@ describeMaybe('Doctor Categories (005-doctor-categories)', () => {
       expect(res.status).toBe(400);
     });
   });
+
+  describe('US4 — Public doctor listing filters by categoryId', () => {
+    let cardiologyId: string;
+    let pediatricsId: string;
+    const createdDoctorIds: string[] = [];
+
+    beforeAll(async () => {
+      const cardio = await prisma.category.findUnique({
+        where: { id: 'seed_cardiology' },
+      });
+      const ped = await prisma.category.findUnique({
+        where: { id: 'seed_pediatrics' },
+      });
+      if (!cardio || !ped) {
+        throw new Error(
+          'Seeded categories missing — run npm run db:seed first',
+        );
+      }
+      cardiologyId = cardio.id;
+      pediatricsId = ped.id;
+
+      // Create two fresh doctors under each category for the filter tests.
+      const unique = Date.now();
+      const d1 = await prisma.doctor.create({
+        data: {
+          name: `Dr. US4 Cardio Alpha ${unique}`,
+          categoryId: cardiologyId,
+          status: 'ACTIVE',
+        },
+      });
+      const d2 = await prisma.doctor.create({
+        data: {
+          name: `Dr. US4 Cardio Beta ${unique}`,
+          categoryId: cardiologyId,
+          status: 'ACTIVE',
+        },
+      });
+      const d3 = await prisma.doctor.create({
+        data: {
+          name: `Dr. US4 Ped Alpha ${unique}`,
+          categoryId: pediatricsId,
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(d1.id, d2.id, d3.id);
+    });
+
+    afterAll(async () => {
+      if (createdDoctorIds.length) {
+        await prisma.doctor.deleteMany({
+          where: { id: { in: createdDoctorIds } },
+        });
+      }
+    });
+
+    it('returns only doctors in the requested category when ?categoryId=<cardio>', async () => {
+      const res = await request(server)
+        .get('/api/doctors')
+        .query({ categoryId: cardiologyId });
+      expect(res.status).toBe(200);
+      const body = res.body as {
+        doctors: Array<{ id: string; category: { id: string } }>;
+        total: number;
+      };
+      // Every returned doctor must be in cardiologyId
+      for (const d of body.doctors) {
+        expect(d.category.id).toBe(cardiologyId);
+      }
+      // At least our two test doctors must be present
+      const ids = body.doctors.map((d) => d.id);
+      const ourTwo = createdDoctorIds.slice(0, 2);
+      for (const id of ourTwo) {
+        expect(ids).toContain(id);
+      }
+    });
+
+    it('returns empty array when ?categoryId=<unknown>', async () => {
+      const res = await request(server)
+        .get('/api/doctors')
+        .query({ categoryId: 'cat_does_not_exist_xyz' });
+      expect(res.status).toBe(200);
+      const body = res.body as { doctors: unknown[]; total: number };
+      expect(body.doctors).toEqual([]);
+      expect(body.total).toBe(0);
+    });
+
+    it('returns empty array when ?categoryId=<deactivated>', async () => {
+      const deact = await prisma.category.create({
+        data: { name: `US4-Deact-${Date.now()}`, status: 'DEACTIVATED' },
+      });
+      createdIds.push(deact.id);
+      const res = await request(server)
+        .get('/api/doctors')
+        .query({ categoryId: deact.id });
+      expect(res.status).toBe(200);
+      const body = res.body as { doctors: unknown[]; total: number };
+      expect(body.doctors).toEqual([]);
+      expect(body.total).toBe(0);
+    });
+
+    it('combines categoryId + search with AND (category exact, search OR)', async () => {
+      // Cardiology doctors all start with "Dr. US4 Cardio". A search for
+      // "Alpha" should match only the Alpha one in cardiology (NOT in ped).
+      const res = await request(server)
+        .get('/api/doctors')
+        .query({ categoryId: cardiologyId, search: 'Alpha' });
+      expect(res.status).toBe(200);
+      const body = res.body as {
+        doctors: Array<{ id: string; name: string; category: { id: string } }>;
+      };
+      // All returned doctors must be in cardiology
+      for (const d of body.doctors) {
+        expect(d.category.id).toBe(cardiologyId);
+      }
+      // The Alpha doctor is the only one in our set that matches "Alpha"
+      const matchingUs = body.doctors.filter((d) =>
+        createdDoctorIds.includes(d.id),
+      );
+      expect(matchingUs.length).toBeGreaterThanOrEqual(1);
+      // No pediatrics doctor should be in the response
+      for (const d of body.doctors) {
+        if (createdDoctorIds.includes(d.id)) {
+          expect(d.name).toContain('Alpha');
+        }
+      }
+    });
+
+    it('does not respond to the legacy ?specialty= query parameter (400)', async () => {
+      const res = await request(server)
+        .get('/api/doctors')
+        .query({ specialty: 'Cardiology' });
+      // The legacy param is no longer in the DTO — ValidationPipe with
+      // forbidNonWhitelisted rejects unknown query params with 400.
+      expect(res.status).toBe(400);
+    });
+
+    it('does not return doctors whose category is DEACTIVATED (404 on profile, hidden from listing)', async () => {
+      // Create a doctor in a freshly created category, then deactivate the
+      // category. The doctor's public listing should not include it, and
+      // its profile should 404.
+      const cat = await prisma.category.create({
+        data: { name: `US4-List-Deact-${Date.now()}`, status: 'ACTIVE' },
+      });
+      createdIds.push(cat.id);
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US4 Hidden ${Date.now()}`,
+          categoryId: cat.id,
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+
+      // Listing with the categoryId before deactivation returns the doc.
+      const before = await request(server)
+        .get('/api/doctors')
+        .query({ categoryId: cat.id });
+      const beforeBody = before.body as { doctors: Array<{ id: string }> };
+      expect(beforeBody.doctors.map((d) => d.id)).toContain(doc.id);
+
+      // Deactivate the category, then assert the doc is no longer in the list.
+      await prisma.category.update({
+        where: { id: cat.id },
+        data: { status: 'DEACTIVATED' },
+      });
+
+      const after = await request(server)
+        .get('/api/doctors')
+        .query({ categoryId: cat.id });
+      const afterBody = after.body as {
+        doctors: Array<{ id: string }>;
+        total: number;
+      };
+      expect(afterBody.doctors).toEqual([]);
+      expect(afterBody.total).toBe(0);
+
+      // Profile returns 404 too.
+      const profile = await request(server).get(`/api/doctors/${doc.id}`);
+      expect(profile.status).toBe(404);
+    });
+  });
 });
