@@ -1,0 +1,126 @@
+// Prisma schema for Vezeeta backend
+// Better Auth owns the User, Session, Account, Verification tables.
+// Doctor is a standalone CRUD record managed by admins (no relation to User).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =================== Better Auth core tables ===================
+
+model User {
+  id                  String    @id @default(cuid())
+  name                String
+  email               String    @unique
+  emailVerified       Boolean   @default(false)
+  image               String?
+  phoneNumber         String?   @unique
+  phoneNumberVerified Boolean   @default(false)
+  role                String    @default("user")
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// =================== Domain tables ===================
+
+// Category is the controlled vocabulary doctors reference (feature
+// 005-doctor-categories). It is admin-managed and public-readable
+// (filtered to ACTIVE rows). Composite unique on (name, status) lets
+// a DEACTIVATED row share a name with an ACTIVE row, so re-creation
+// under a previously-retired name is possible.
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctors Doctor[]
+
+  @@unique([name, status])
+  @@index([status])
+  @@map("category")
+}
+
+// Doctor is a standalone CRUD record. It has NO foreign key to User.
+// Doctors cannot log in; they are managed entirely by admins via the
+// /api/admin/doctors endpoints (see feature 003-remove-doctor-role).
+// categoryId is required and references an ACTIVE Category (feature
+// 005-doctor-categories); the free-text `specialty` column was
+// dropped in this migration.
+model Doctor {
+  id         String   @id @default(cuid())
+  name       String
+  categoryId String
+  bio        String?
+  imageUrl   String?
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([categoryId])
+  @@map("doctor")
+}
