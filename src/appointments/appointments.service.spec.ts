@@ -158,5 +158,174 @@ describe('AppointmentsService — listPublicSlots (US1)', () => {
   });
 });
 
+describe('AppointmentsService — admin slot CRUD (US8)', () => {
+  let service: AppointmentsService;
+  let prisma: Record<string, unknown>;
+
+  beforeEach(async () => {
+    prisma = {
+      user: { findUnique: jest.fn() },
+      doctor: { findUnique: jest.fn() },
+      doctorSlot: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+        delete: jest.fn(),
+      },
+      appointment: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AppointmentsService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+    service = module.get(AppointmentsService);
+  });
+
+  it('createSlot rejects non-existent doctor (404)', async () => {
+    (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce(null);
+    await expect(
+      service.createSlot('missing', {
+        startsAt: new Date(Date.now() + 3600_000),
+        endsAt: new Date(Date.now() + 3600_000 + 1800_000),
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('createSlot rejects DEACTIVATED doctor (400)', async () => {
+    (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'd1',
+      status: 'DEACTIVATED',
+      category: { status: 'ACTIVE' },
+    });
+    await expect(
+      service.createSlot('d1', {
+        startsAt: new Date(Date.now() + 3600_000),
+        endsAt: new Date(Date.now() + 3600_000 + 1800_000),
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('createSlot rejects DEACTIVATED category (400)', async () => {
+    (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'd1',
+      status: 'ACTIVE',
+      category: { status: 'DEACTIVATED' },
+    });
+    await expect(
+      service.createSlot('d1', {
+        startsAt: new Date(Date.now() + 3600_000),
+        endsAt: new Date(Date.now() + 3600_000 + 1800_000),
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('createSlot rejects past-time slot (400)', async () => {
+    (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'd1',
+      status: 'ACTIVE',
+      category: { status: 'ACTIVE' },
+    });
+    await expect(
+      service.createSlot('d1', {
+        startsAt: new Date(Date.now() - 3600_000),
+        endsAt: new Date(Date.now() - 3600_000 + 1800_000),
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('createSlot rejects endsAt <= startsAt (400)', async () => {
+    (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'd1',
+      status: 'ACTIVE',
+      category: { status: 'ACTIVE' },
+    });
+    const start = new Date(Date.now() + 3600_000);
+    await expect(
+      service.createSlot('d1', { startsAt: start, endsAt: start }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('createSlot succeeds with valid input', async () => {
+    (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'd1',
+      status: 'ACTIVE',
+      category: { status: 'ACTIVE' },
+    });
+    (prisma['doctorSlot'].create as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+      doctorId: 'd1',
+      startsAt: new Date(Date.now() + 3600_000),
+      endsAt: new Date(Date.now() + 3600_000 + 1800_000),
+      status: 'AVAILABLE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const slot = await service.createSlot('d1', {
+      startsAt: new Date(Date.now() + 3600_000),
+      endsAt: new Date(Date.now() + 3600_000 + 1800_000),
+    });
+    expect(slot.status).toBe('AVAILABLE');
+  });
+
+  it('blockSlot is idempotent for an already-BLOCKED slot', async () => {
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+      doctorId: 'd1',
+      status: 'BLOCKED',
+      startsAt: new Date(),
+      endsAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const result = await service.blockSlot('s1');
+    expect(result.status).toBe('BLOCKED');
+    expect(prisma['doctorSlot'].update).not.toHaveBeenCalled();
+  });
+
+  it('blockSlot rejects a BOOKED slot (409)', async () => {
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+      doctorId: 'd1',
+      status: 'BOOKED',
+      startsAt: new Date(),
+      endsAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await expect(service.blockSlot('s1')).rejects.toThrow(ConflictException);
+  });
+
+  it('deleteSlot rejects non-AVAILABLE slot (409)', async () => {
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+      doctorId: 'd1',
+      status: 'BOOKED',
+      startsAt: new Date(),
+      endsAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await expect(service.deleteSlot('s1')).rejects.toThrow(ConflictException);
+    expect(prisma['doctorSlot'].delete).not.toHaveBeenCalled();
+  });
+});
+
 // helper import
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';

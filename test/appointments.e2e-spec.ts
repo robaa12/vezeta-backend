@@ -55,11 +55,10 @@ async function getPatientSession(
 ): Promise<PatientSession> {
   const email = `appointments-patient-${index}-${Date.now()}@example.com`;
   const password = 'Patient123!';
-  // Sign up
+  // Sign up (Better Auth returns 200 OK on sign-up)
   await request(server)
     .post('/api/auth/sign-up/email')
-    .send({ email, password, name: `Patient ${index}` })
-    .expect(201);
+    .send({ email, password, name: `Patient ${index}` });
   // Find the user id
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw new Error(`Patient signup did not create user: ${email}`);
@@ -258,6 +257,226 @@ describeMaybe('Appointments & Booking (006-appointments-booking)', () => {
       expect(idxEarlier).toBeGreaterThanOrEqual(0);
       expect(idxLater).toBeGreaterThanOrEqual(0);
       expect(idxEarlier).toBeLessThan(idxLater);
+    });
+  });
+
+  describe('US8 — Admin slot CRUD', () => {
+    let admin: AdminSession;
+    const createdSlotIds: string[] = [];
+    const createdDoctorIds: string[] = [];
+
+    beforeAll(async () => {
+      admin = await getAdminSession(server);
+    });
+
+    afterAll(async () => {
+      // Delete in dependency order: slots first, then doctors.
+      if (createdSlotIds.length) {
+        await prisma.doctorSlot.deleteMany({
+          where: { id: { in: createdSlotIds } },
+        });
+      }
+      if (createdDoctorIds.length) {
+        await prisma.appointment.deleteMany({
+          where: { doctorId: { in: createdDoctorIds } },
+        });
+        await prisma.doctorSlot.deleteMany({
+          where: { doctorId: { in: createdDoctorIds } },
+        });
+        await prisma.doctor.deleteMany({
+          where: { id: { in: createdDoctorIds } },
+        });
+      }
+    });
+
+    async function freshDoctor(): Promise<string> {
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US8 ${Date.now()}-${Math.random()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+      return doc.id;
+    }
+
+    it('rejects unauthenticated requests with 401', async () => {
+      const res = await request(server).get('/api/admin/slots');
+      expect(res.status).toBe(401);
+    });
+
+    it('admin creates a slot (201) with valid future times', async () => {
+      const doctorId = await freshDoctor();
+      const startsAt = new Date(Date.now() + 3600_000).toISOString();
+      const endsAt = new Date(Date.now() + 5400_000).toISOString();
+      const res = await request(server)
+        .post(`/api/admin/doctors/${doctorId}/slots`)
+        .set('Cookie', admin.cookie)
+        .send({ startsAt, endsAt });
+      expect(res.status).toBe(201);
+      const body = res.body as { slot: { id: string; status: string } };
+      expect(body.slot.status).toBe('AVAILABLE');
+      createdSlotIds.push(body.slot.id);
+    });
+
+    it('rejects past-time slot (400)', async () => {
+      const doctorId = await freshDoctor();
+      const startsAt = new Date(Date.now() - 7200_000).toISOString();
+      const endsAt = new Date(Date.now() - 3600_000).toISOString();
+      const res = await request(server)
+        .post(`/api/admin/doctors/${doctorId}/slots`)
+        .set('Cookie', admin.cookie)
+        .send({ startsAt, endsAt });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects endsAt <= startsAt (400)', async () => {
+      const doctorId = await freshDoctor();
+      const startsAt = new Date(Date.now() + 7200_000).toISOString();
+      const endsAt = startsAt;
+      const res = await request(server)
+        .post(`/api/admin/doctors/${doctorId}/slots`)
+        .set('Cookie', admin.cookie)
+        .send({ startsAt, endsAt });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects non-existent doctor (404)', async () => {
+      const res = await request(server)
+        .post('/api/admin/doctors/doctor_does_not_exist/slots')
+        .set('Cookie', admin.cookie)
+        .send({
+          startsAt: new Date(Date.now() + 3600_000).toISOString(),
+          endsAt: new Date(Date.now() + 5400_000).toISOString(),
+        });
+      expect(res.status).toBe(404);
+    });
+
+    it('rejects DEACTIVATED doctor (400)', async () => {
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US8 Deact ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'DEACTIVATED',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+      const res = await request(server)
+        .post(`/api/admin/doctors/${doc.id}/slots`)
+        .set('Cookie', admin.cookie)
+        .send({
+          startsAt: new Date(Date.now() + 3600_000).toISOString(),
+          endsAt: new Date(Date.now() + 5400_000).toISOString(),
+        });
+      expect(res.status).toBe(400);
+    });
+
+    it('admin lists slots (200, paginated)', async () => {
+      const res = await request(server)
+        .get('/api/admin/slots?page=1&pageSize=10')
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(200);
+      const body = res.body as {
+        slots: unknown[];
+        total: number;
+        page: number;
+        pageSize: number;
+      };
+      expect(Array.isArray(body.slots)).toBe(true);
+      expect(typeof body.total).toBe('number');
+      expect(body.page).toBe(1);
+      expect(body.pageSize).toBe(10);
+    });
+
+    it('admin gets one slot (200) and 404 for missing', async () => {
+      const created = await prisma.doctorSlot.create({
+        data: {
+          doctorId: await freshDoctor(),
+          startsAt: new Date(Date.now() + 3600_000),
+          endsAt: new Date(Date.now() + 5400_000),
+          status: 'AVAILABLE',
+        },
+      });
+      createdSlotIds.push(created.id);
+      const ok = await request(server)
+        .get(`/api/admin/slots/${created.id}`)
+        .set('Cookie', admin.cookie);
+      expect(ok.status).toBe(200);
+      const miss = await request(server)
+        .get('/api/admin/slots/slot_does_not_exist')
+        .set('Cookie', admin.cookie);
+      expect(miss.status).toBe(404);
+    });
+
+    it('admin blocks a slot (idempotent)', async () => {
+      const created = await prisma.doctorSlot.create({
+        data: {
+          doctorId: await freshDoctor(),
+          startsAt: new Date(Date.now() + 3600_000),
+          endsAt: new Date(Date.now() + 5400_000),
+          status: 'AVAILABLE',
+        },
+      });
+      createdSlotIds.push(created.id);
+      const r1 = await request(server)
+        .patch(`/api/admin/slots/${created.id}/block`)
+        .set('Cookie', admin.cookie);
+      expect(r1.status).toBe(200);
+      expect((r1.body as { slot: { status: string } }).slot.status).toBe(
+        'BLOCKED',
+      );
+      const r2 = await request(server)
+        .patch(`/api/admin/slots/${created.id}/block`)
+        .set('Cookie', admin.cookie);
+      expect(r2.status).toBe(200);
+    });
+
+    it('admin deletes AVAILABLE slot (204)', async () => {
+      const created = await prisma.doctorSlot.create({
+        data: {
+          doctorId: await freshDoctor(),
+          startsAt: new Date(Date.now() + 3600_000),
+          endsAt: new Date(Date.now() + 5400_000),
+          status: 'AVAILABLE',
+        },
+      });
+      const res = await request(server)
+        .delete(`/api/admin/slots/${created.id}`)
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(204);
+    });
+
+    it('rejects delete of BOOKED slot (409)', async () => {
+      const created = await prisma.doctorSlot.create({
+        data: {
+          doctorId: await freshDoctor(),
+          startsAt: new Date(Date.now() + 3600_000),
+          endsAt: new Date(Date.now() + 5400_000),
+          status: 'BOOKED',
+        },
+      });
+      createdSlotIds.push(created.id);
+      const res = await request(server)
+        .delete(`/api/admin/slots/${created.id}`)
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(409);
+    });
+
+    it('rejects non-admin (403)', async () => {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        Math.floor(Math.random() * 1000),
+      );
+      try {
+        const res = await request(server)
+          .get('/api/admin/slots')
+          .set('Cookie', patient.cookie);
+        expect(res.status).toBe(403);
+      } finally {
+        await prisma.user.deleteMany({ where: { id: patient.userId } });
+      }
     });
   });
 });
