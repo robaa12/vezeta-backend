@@ -1,0 +1,136 @@
+### ======================================================================
+### Vezeeta Backend — HTTP request file
+### ----------------------------------------------------------------------
+### Works with VS Code "REST Client", JetBrains HTTP Client, etc.
+### Pairs with the Swagger UI at /api/docs.
+###
+### Variables are defined per-request when needed; better-auth session
+### cookies are stored in `cookies.vezeta.session_token` by the REST
+### Client jar. Edit the variables below before sending.
+### ======================================================================
+
+@baseUrl = http://localhost:3000
+@email = jane.patient@example.com
+@password = ChangeMe123!
+@doctorProfileId = replace-me-with-doctor-profile-id
+@userId = replace-me-with-user-id
+
+### 1) Health probe (public) ---------------------------------------------
+
+# @name health
+GET {{baseUrl}}/api/health
+Accept: application/json
+
+### 2) Better Auth — sign up a patient -----------------------------------
+# Returns Set-Cookie: vezeta.session_token=... (also stores in jar).
+
+# @name signUpPatient
+POST {{baseUrl}}/api/auth/sign-up/email
+Content-Type: application/json
+Origin: {{baseUrl}}
+
+{
+  "name": "Jane Patient",
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "role": "patient"
+}
+
+### 3) Better Auth — sign in (stores cookie for next calls) -------------
+
+# @name signIn
+POST {{baseUrl}}/api/auth/sign-in/email
+Content-Type: application/json
+Origin: {{baseUrl}}
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### 4) Get the current session user ---------------------------------------
+
+# @name me
+GET {{baseUrl}}/api/me
+Accept: application/json
+
+### 5) Doctor-only test route (requires role=doctor + APPROVED profile) -
+
+# @name doctorTest
+GET {{baseUrl}}/api/doctors/test-route
+Accept: application/json
+
+### 6) Better Auth — sign out --------------------------------------------
+
+# @name signOut
+POST {{baseUrl}}/api/auth/sign-out
+Content-Type: application/json
+Origin: {{baseUrl}}
+
+### 7) Admin — list doctors (requires role=admin) ------------------------
+
+# @name listDoctors
+GET {{baseUrl}}/api/admin/doctors?status=PENDING
+Accept: application/json
+
+### 8) Admin — list doctors with no status filter ------------------------
+
+# @name listAllDoctors
+GET {{baseUrl}}/api/admin/doctors
+Accept: application/json
+
+### 9) Admin — approve a doctor ------------------------------------------
+
+# @name approveDoctor
+PATCH {{baseUrl}}/api/admin/doctors/{{doctorProfileId}}/approve
+Content-Type: application/json
+
+{
+  "notes": "Verified medical license via email."
+}
+
+### 10) Admin — reject a doctor ------------------------------------------
+
+# @name rejectDoctor
+PATCH {{baseUrl}}/api/admin/doctors/{{doctorProfileId}}/reject
+Content-Type: application/json
+
+{
+  "notes": "License number could not be verified."
+}
+
+### 11) Admin — suspend a doctor -----------------------------------------
+
+# @name suspendDoctor
+PATCH {{baseUrl}}/api/admin/doctors/{{doctorProfileId}}/suspend
+Content-Type: application/json
+
+{
+  "notes": "Pending review for policy violation."
+}
+
+### 12) Admin — deactivate a user ----------------------------------------
+
+# @name deactivateUser
+PATCH {{baseUrl}}/api/admin/users/{{userId}}/deactivate
+Accept: application/json
+
+### 13) Admin — ping (public) --------------------------------------------
+
+# @name adminPing
+GET {{baseUrl}}/api/admin/ping
+Accept: application/json
+
+### 14) Negative — call /api/me without a session ------------------------
+# Expect 401.
+
+# @name meUnauthorized
+GET {{baseUrl}}/api/me
+Accept: application/json
+
+### 15) Negative — call admin route as a non-admin ----------------------
+# Sign in as the patient first (see #3), then send.
+
+# @name adminForbidden
+GET {{baseUrl}}/api/admin/doctors
+Accept: application/json

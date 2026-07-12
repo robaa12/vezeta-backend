@@ -1,0 +1,21 @@
+# Compose overrides for local development: bind-mount source, run as the host
+# user, and use the dev server (npm run start:dev). Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+services:
+  app:
+    build:
+      target: builder
+    command: npm run start:dev
+    environment:
+      NODE_ENV: development
+      BETTER_AUTH_URL: http://localhost:3000
+    volumes:
+      - ./src:/app/src:ro
+      - ./prisma:/app/prisma:ro
+      - ./package.json:/app/package.json:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./tsconfig.build.json:/app/tsconfig.build.json:ro
+      - ./nest-cli.json:/app/nest-cli.json:ro
+      - ./prisma.config.ts:/app/prisma.config.ts:ro
+    ports:
+      - "3000:3000"
