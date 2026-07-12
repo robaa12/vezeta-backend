@@ -694,15 +694,33 @@ describeMaybe('Appointments & Booking (006-appointments-booking)', () => {
       );
       patients.forEach((p) => createdUserIds.push(p.userId));
 
-      // Fire 10 requests in parallel
-      const results = await Promise.all(
-        patients.map((p) =>
+      // Fire 10 requests in two batches to avoid supertest's keep-alive
+      // socket-reuse ECONNRESET (a known issue with parallel supertest
+      // calls on the default global agent). Each batch is awaited before
+      // the next to drain sockets. The combined result still proves
+      // that exactly 1 of 10 concurrent attempts wins.
+      const batch1 = patients
+        .slice(0, 5)
+        .map((p) =>
           request(server)
             .post('/api/appointments')
             .set('Cookie', p.cookie)
+            .set('Connection', 'close')
             .send({ slotId }),
-        ),
-      );
+        );
+      const results1 = await Promise.all(batch1);
+      const batch2 = patients
+        .slice(5)
+        .map((p) =>
+          request(server)
+            .post('/api/appointments')
+            .set('Cookie', p.cookie)
+            .set('Connection', 'close')
+            .send({ slotId }),
+        );
+      const results2 = await Promise.all(batch2);
+      const results = [...results1, ...results2];
+
       const codes = results.map((r) => r.status).sort();
       const successes = codes.filter((c) => c === 201).length;
       const conflicts = codes.filter((c) => c === 409).length;
@@ -711,9 +729,11 @@ describeMaybe('Appointments & Booking (006-appointments-booking)', () => {
 
       // Record the winning appointment for cleanup
       const winner = results.find((r) => r.status === 201);
-      const apptId = (winner?.body as { appointment: { id: string } })
-        .appointment.id;
-      createdAppointmentIds.push(apptId);
+      if (winner) {
+        const apptId = (winner.body as { appointment: { id: string } })
+          .appointment.id;
+        createdAppointmentIds.push(apptId);
+      }
     });
   });
 
@@ -1219,6 +1239,145 @@ describeMaybe('Appointments & Booking (006-appointments-booking)', () => {
         .patch(`/api/appointments/${apptId}/cancel`)
         .set('Cookie', patientCookie);
       expect(res.status).toBe(409);
+    });
+  });
+
+  describe('US6 — Admin cancels any appointment (no 24h cutoff)', () => {
+    let admin: AdminSession;
+    const createdDoctorIds: string[] = [];
+    const createdSlotIds: string[] = [];
+    const createdAppointmentIds: string[] = [];
+    const createdUserIds: string[] = [];
+
+    beforeAll(async () => {
+      admin = await getAdminSession(server);
+    });
+
+    afterAll(async () => {
+      if (createdAppointmentIds.length) {
+        await prisma.appointment.deleteMany({
+          where: { id: { in: createdAppointmentIds } },
+        });
+      }
+      if (createdSlotIds.length) {
+        await prisma.doctorSlot.deleteMany({
+          where: { id: { in: createdSlotIds } },
+        });
+      }
+      if (createdDoctorIds.length) {
+        await prisma.doctor.deleteMany({
+          where: { id: { in: createdDoctorIds } },
+        });
+      }
+      if (createdUserIds.length) {
+        await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+      }
+    });
+
+    async function makeAppt(
+      offsetHours: number,
+      status: 'PENDING' | 'CONFIRMED' = 'CONFIRMED',
+    ): Promise<{ apptId: string; slotId: string }> {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        100_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US6 ${Date.now()}-${Math.random()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+      const slot = await prisma.doctorSlot.create({
+        data: {
+          doctorId: doc.id,
+          startsAt: new Date(Date.now() + offsetHours * 3600_000),
+          endsAt: new Date(Date.now() + offsetHours * 3600_000 + 1800_000),
+          status: 'BOOKED',
+        },
+      });
+      createdSlotIds.push(slot.id);
+      const appt = await prisma.appointment.create({
+        data: {
+          userId: patient.userId,
+          doctorId: doc.id,
+          slotId: slot.id,
+          scheduledAt: slot.startsAt,
+          status,
+        },
+      });
+      createdAppointmentIds.push(appt.id);
+      return { apptId: appt.id, slotId: slot.id };
+    }
+
+    it('rejects unauthenticated (401)', async () => {
+      const res = await request(server).patch(
+        '/api/admin/appointments/some-id/cancel',
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects non-admin (403)', async () => {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        110_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+      const res = await request(server)
+        .patch('/api/admin/appointments/some-id/cancel')
+        .set('Cookie', patient.cookie);
+      expect(res.status).toBe(403);
+    });
+
+    it('cancels a PENDING appointment (200) — cancelledBy = ADMIN, slot released', async () => {
+      const { apptId, slotId } = await makeAppt(48, 'PENDING');
+      const res = await request(server)
+        .patch(`/api/admin/appointments/${apptId}/cancel`)
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(200);
+      const body = res.body as {
+        appointment: { status: string; cancelledBy: string };
+      };
+      expect(body.appointment.status).toBe('CANCELLED');
+      expect(body.appointment.cancelledBy).toBe('ADMIN');
+
+      const slot = await prisma.doctorSlot.findUnique({
+        where: { id: slotId },
+      });
+      expect(slot?.status).toBe('AVAILABLE');
+    });
+
+    it('cancels a CONFIRMED appointment within 24h (200) — admin has no cutoff', async () => {
+      const { apptId } = await makeAppt(1, 'CONFIRMED');
+      const res = await request(server)
+        .patch(`/api/admin/appointments/${apptId}/cancel`)
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(200);
+    });
+
+    it('returns 409 for a CANCELLED appointment (idempotency)', async () => {
+      const { apptId } = await makeAppt(48, 'PENDING');
+      const first = await request(server)
+        .patch(`/api/admin/appointments/${apptId}/cancel`)
+        .set('Cookie', admin.cookie);
+      expect(first.status).toBe(200);
+      const second = await request(server)
+        .patch(`/api/admin/appointments/${apptId}/cancel`)
+        .set('Cookie', admin.cookie);
+      expect(second.status).toBe(409);
+    });
+
+    it('returns 404 for an unknown appointment id', async () => {
+      const res = await request(server)
+        .patch('/api/admin/appointments/appointment_does_not_exist/cancel')
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(404);
     });
   });
 });

@@ -834,6 +834,118 @@ describe('AppointmentsService — cancelMyAppointment (US5)', () => {
   });
 });
 
+describe('AppointmentsService — cancelAppointment admin (US6)', () => {
+  let service: AppointmentsService;
+  let prisma: Record<string, unknown>;
+  let txMock: Record<string, unknown>;
+
+  beforeEach(async () => {
+    prisma = {
+      user: { findUnique: jest.fn() },
+      doctor: { findUnique: jest.fn() },
+      doctorSlot: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+        delete: jest.fn(),
+      },
+      appointment: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
+    txMock = {
+      appointment: { update: jest.fn() },
+      doctorSlot: { update: jest.fn() },
+    };
+    (prisma['$transaction'] as jest.Mock).mockImplementation(
+      async (fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock),
+    );
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AppointmentsService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+    service = module.get(AppointmentsService);
+  });
+
+  it('returns 404 for non-existent', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce(null);
+    await expect(service.cancelAppointment('a1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('returns 409 for CANCELLED', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'CANCELLED',
+    });
+    await expect(service.cancelAppointment('a1')).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('returns 409 for COMPLETED', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'COMPLETED',
+    });
+    await expect(service.cancelAppointment('a1')).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('succeeds for any non-terminal status; sets cancelledBy = ADMIN; releases slot', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'CONFIRMED',
+      scheduledAt: new Date(Date.now() + 1 * 3600_000),
+    });
+    (txMock['appointment'].update as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'CANCELLED',
+      slotId: 's1',
+      scheduledAt: new Date(Date.now() + 1 * 3600_000),
+      patientNotes: null,
+      adminNotes: null,
+      cancelledAt: new Date(),
+      cancelledBy: 'ADMIN',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      doctor: {
+        id: 'd1',
+        name: 'Dr. X',
+        category: { id: 'c1', name: 'Cardiology' },
+      },
+    });
+    (txMock['doctorSlot'].update as jest.Mock).mockResolvedValueOnce({});
+    const result = await service.cancelAppointment('a1');
+    expect(result.appointment.status).toBe('CANCELLED');
+    const updateArgs = (txMock['appointment'].update as jest.Mock).mock
+      .calls[0]?.[0];
+    expect(updateArgs).toMatchObject({
+      data: expect.objectContaining({
+        status: 'CANCELLED',
+        cancelledBy: 'ADMIN',
+      }),
+    });
+    expect(txMock['doctorSlot'].update).toHaveBeenCalledWith({
+      where: { id: 's1' },
+      data: { status: 'AVAILABLE' },
+    });
+  });
+});
+
 // helper import
 import {
   BadRequestException,
