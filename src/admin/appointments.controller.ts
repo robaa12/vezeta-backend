@@ -29,7 +29,11 @@ import { AppointmentsService } from '../appointments/appointments.service.js';
 import { CreateSlotDto } from '../appointments/dto/create-slot.dto.js';
 import { UpdateSlotDto } from '../appointments/dto/update-slot.dto.js';
 import { ListAdminSlotsDto } from '../appointments/dto/list-admin-slots.dto.js';
-import type { AppointmentResponseDto } from '../appointments/dto/appointment-response.dto.js';
+import { ListAdminAppointmentsDto } from '../appointments/dto/list-admin-appointments.dto.js';
+import type {
+  AppointmentResponseDto,
+  ListMyAppointmentsResult,
+} from '../appointments/dto/appointment-response.dto.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
 import type {
@@ -170,5 +174,33 @@ export class AdminAppointmentsController {
     @Param('id') id: string,
   ): Promise<{ appointment: AppointmentResponseDto }> {
     return this.appointmentsService.completeAppointment(id);
+  }
+
+  // ---------------- Admin appointment listing ----------------
+
+  @Get('appointments')
+  @ApiOperation({
+    summary: 'List all appointments (admin)',
+    description:
+      'Paginated list of all appointments, filterable by status, userId, doctorId.',
+  })
+  @ApiOkResponse({ description: 'Paginated list of appointments.' })
+  listAppointments(
+    @Query() query: ListAdminAppointmentsDto,
+  ): Promise<ListMyAppointmentsResult> {
+    return this.appointmentsService.listAdminAppointments(query);
+  }
+
+  @Get('appointments/:id')
+  @ApiOperation({ summary: 'Get an appointment by id (admin)' })
+  @ApiParam({ name: 'id', description: 'Appointment id (cuid)' })
+  @ApiOkResponse({ description: 'Appointment found.' })
+  @ApiNotFoundResponse({ description: 'Appointment not found.' })
+  getAppointment(
+    @Param('id') id: string,
+  ): Promise<{ appointment: AppointmentResponseDto }> {
+    return this.appointmentsService
+      .getAdminAppointment(id)
+      .then((appointment) => ({ appointment }));
   }
 }

@@ -137,6 +137,41 @@ max-age=N` headers (60 for the listing, 300 for the profile, 300 for the
 categories dropdown) and are rate-limited per IP via `@nestjs/throttler`
 (60/120/60 requests per minute).
 
+## Public Slot Listing (Module 3)
+
+Anonymous-accessible endpoint for the patient-facing slot picker. No
+authentication required. See `specs/006-appointments-booking/` for the
+full spec.
+
+| Method | Path                                       | Description                          |
+|--------|--------------------------------------------|--------------------------------------|
+| GET    | `/api/doctors/:doctorId/slots`             | AVAILABLE slots for an ACTIVE doctor |
+
+Responses include `Cache-Control: public, max-age=60` and are rate-limited
+per IP via `@nestjs/throttler` (60 req/min).
+
+## Patient Appointment Endpoints (Module 3)
+
+Authenticated endpoints for the patient-side booking loop. Require a
+session (any role). See `specs/006-appointments-booking/` for the full
+spec.
+
+| Method | Path                          | Description                                                                  |
+|--------|-------------------------------|------------------------------------------------------------------------------|
+| POST   | `/api/appointments`           | Book an AVAILABLE slot (atomic; 10-concurrent guarantee)                    |
+| GET    | `/api/appointments`           | List my own appointments; optional `?status=` filter                        |
+| PATCH  | `/api/appointments/:id/cancel` | Cancel my own appointment; 24h cutoff (403 within 24h, 404 cross-patient) |
+
+**Booking atomicity**: two patients hitting `POST /api/appointments`
+simultaneously for the same slot will result in exactly one 201 and the
+rest 409. The booking executes inside a `prisma.$transaction` with a
+conditional `updateMany WHERE status = 'AVAILABLE'` (Constitution
+Principle IV — Transactional Data Integrity).
+
+**Cancellation 24h cutoff**: patients can self-cancel appointments
+scheduled more than 24 hours from now. Within 24 hours the endpoint
+returns 403; only an admin can cancel at that point.
+
 ### Better Auth managed routes
 
 - `POST /api/auth/sign-up/email` — create account with role
@@ -175,6 +210,17 @@ categories dropdown) and are rate-limited per IP via `@nestjs/throttler`
 | GET    | `/api/admin/users/:id`                | admin | get a user |
 | PATCH  | `/api/admin/users/:id/role`           | admin | promote / demote (last-admin guard) |
 | PATCH  | `/api/admin/users/:id/deactivate`     | admin | deactivate a user |
+| POST   | `/api/admin/doctors/:doctorId/slots`  | admin | create a slot for a doctor (future-time only) |
+| GET    | `/api/admin/slots`                    | admin | list slots (filter + paginate) |
+| GET    | `/api/admin/slots/:id`                | admin | get one slot |
+| PATCH  | `/api/admin/slots/:id`                | admin | partial update (status) |
+| PATCH  | `/api/admin/slots/:id/block`          | admin | soft-block a slot (idempotent) |
+| DELETE | `/api/admin/slots/:id`                | admin | hard-delete an AVAILABLE slot |
+| GET    | `/api/admin/appointments`             | admin | list all appointments (filter by status/userId/doctorId) |
+| GET    | `/api/admin/appointments/:id`         | admin | get one appointment |
+| PATCH  | `/api/admin/appointments/:id/confirm` | admin | PENDING → CONFIRMED |
+| PATCH  | `/api/admin/appointments/:id/cancel`  | admin | cancel any appointment (no 24h cutoff); slot released atomically |
+| PATCH  | `/api/admin/appointments/:id/complete`| admin | CONFIRMED → COMPLETED (only past `scheduledAt`) |
 
 > **Note**: The previous doctor-profile approval endpoints
 > (`/approve`, `/reject`, `/suspend`, `?status=PENDING`) have been
