@@ -191,4 +191,21 @@ describe('DoctorsService — getPublicDoctor', () => {
     const result = await service.getPublicDoctor('missing');
     expect(result).toBeNull();
   });
+
+  it('returns null when the doctor is ACTIVE but the category is DEACTIVATED (US6)', async () => {
+    prisma.doctor.findFirst.mockResolvedValueOnce(null);
+    const result = await service.getPublicDoctor('d-active-cat-deact');
+    expect(result).toBeNull();
+    const args = prisma.doctor.findFirst.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(args).toMatchObject({
+      where: {
+        id: 'd-active-cat-deact',
+        status: 'ACTIVE',
+        category: { status: 'ACTIVE' },
+      },
+    });
+  });
 });

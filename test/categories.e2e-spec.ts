@@ -723,4 +723,84 @@ describeMaybe('Doctor Categories (005-doctor-categories)', () => {
       expect(res.status).toBe(400);
     });
   });
+
+  describe('US6 — Public doctor profile exposes category', () => {
+    const createdDoctorIds: string[] = [];
+
+    afterAll(async () => {
+      if (createdDoctorIds.length) {
+        await prisma.doctor.deleteMany({
+          where: { id: { in: createdDoctorIds } },
+        });
+      }
+    });
+
+    it('includes the category object { id, name } for an ACTIVE doctor in an ACTIVE category (200)', async () => {
+      const created = await prisma.doctor.create({
+        data: {
+          name: `Dr. US6 Profile ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(created.id);
+
+      const res = await request(server).get(`/api/doctors/${created.id}`);
+      expect(res.status).toBe(200);
+      const body = res.body as {
+        doctor: { id: string; category: { id: string; name: string } };
+      };
+      expect(body.doctor.id).toBe(created.id);
+      expect(body.doctor.category).toEqual({
+        id: 'seed_cardiology',
+        name: 'Cardiology',
+      });
+    });
+
+    it('returns 404 for an ACTIVE doctor whose category is DEACTIVATED (US6)', async () => {
+      const cat = await prisma.category.create({
+        data: { name: `US6-Deact-${Date.now()}`, status: 'ACTIVE' },
+      });
+      createdIds.push(cat.id);
+      const created = await prisma.doctor.create({
+        data: {
+          name: `Dr. US6 Hidden ${Date.now()}`,
+          categoryId: cat.id,
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(created.id);
+
+      // Sanity: while the category is ACTIVE, the profile returns 200 with category.
+      const before = await request(server).get(`/api/doctors/${created.id}`);
+      expect(before.status).toBe(200);
+      const beforeBody = before.body as {
+        doctor: { category: { id: string } };
+      };
+      expect(beforeBody.doctor.category.id).toBe(cat.id);
+
+      // Deactivate the category; the profile should 404.
+      await prisma.category.update({
+        where: { id: cat.id },
+        data: { status: 'DEACTIVATED' },
+      });
+
+      const after = await request(server).get(`/api/doctors/${created.id}`);
+      expect(after.status).toBe(404);
+    });
+
+    it('returns 404 for a DEACTIVATED doctor (regression from feature 004)', async () => {
+      const created = await prisma.doctor.create({
+        data: {
+          name: `Dr. US6 Deact ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'DEACTIVATED',
+        },
+      });
+      createdDoctorIds.push(created.id);
+
+      const res = await request(server).get(`/api/doctors/${created.id}`);
+      expect(res.status).toBe(404);
+    });
+  });
 });
