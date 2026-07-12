@@ -946,6 +946,120 @@ describe('AppointmentsService — cancelAppointment admin (US6)', () => {
   });
 });
 
+describe('AppointmentsService — completeAppointment (US7)', () => {
+  let service: AppointmentsService;
+  let prisma: Record<string, unknown>;
+
+  beforeEach(async () => {
+    prisma = {
+      user: { findUnique: jest.fn() },
+      doctor: { findUnique: jest.fn() },
+      doctorSlot: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+        delete: jest.fn(),
+      },
+      appointment: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AppointmentsService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+    service = module.get(AppointmentsService);
+  });
+
+  it('returns 404 for non-existent', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce(null);
+    await expect(service.completeAppointment('a1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('returns 409 for a PENDING appointment', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'PENDING',
+      scheduledAt: new Date(),
+    });
+    await expect(service.completeAppointment('a1')).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('returns 409 for a CANCELLED appointment', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'CANCELLED',
+      scheduledAt: new Date(),
+    });
+    await expect(service.completeAppointment('a1')).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('returns 409 for an already-COMPLETED appointment', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'COMPLETED',
+      scheduledAt: new Date(),
+    });
+    await expect(service.completeAppointment('a1')).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('returns 400 for a CONFIRMED appointment with scheduledAt in the future', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'CONFIRMED',
+      scheduledAt: new Date(Date.now() + 3600_000),
+    });
+    await expect(service.completeAppointment('a1')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('succeeds for a past-time CONFIRMED appointment (200)', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'CONFIRMED',
+      scheduledAt: new Date(Date.now() - 3600_000),
+    });
+    (prisma['appointment'].update as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'COMPLETED',
+      scheduledAt: new Date(Date.now() - 3600_000),
+      patientNotes: null,
+      adminNotes: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      doctor: {
+        id: 'd1',
+        name: 'Dr. X',
+        category: { id: 'c1', name: 'Cardiology' },
+      },
+    });
+    const result = await service.completeAppointment('a1');
+    expect(result.appointment.status).toBe('COMPLETED');
+  });
+});
+
 // helper import
 import {
   BadRequestException,

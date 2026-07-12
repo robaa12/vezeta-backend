@@ -694,45 +694,35 @@ describeMaybe('Appointments & Booking (006-appointments-booking)', () => {
       );
       patients.forEach((p) => createdUserIds.push(p.userId));
 
-      // Fire 10 requests in two batches to avoid supertest's keep-alive
-      // socket-reuse ECONNRESET (a known issue with parallel supertest
-      // calls on the default global agent). Each batch is awaited before
-      // the next to drain sockets. The combined result still proves
-      // that exactly 1 of 10 concurrent attempts wins.
-      const batch1 = patients
-        .slice(0, 5)
-        .map((p) =>
-          request(server)
-            .post('/api/appointments')
-            .set('Cookie', p.cookie)
-            .set('Connection', 'close')
-            .send({ slotId }),
-        );
-      const results1 = await Promise.all(batch1);
-      const batch2 = patients
-        .slice(5)
-        .map((p) =>
-          request(server)
-            .post('/api/appointments')
-            .set('Cookie', p.cookie)
-            .set('Connection', 'close')
-            .send({ slotId }),
-        );
-      const results2 = await Promise.all(batch2);
-      const results = [...results1, ...results2];
+      // Fire 10 requests with very small staggers. The point is to
+      // saturate the booking path with concurrent attempts so the
+      // conditional updateMany in the prisma.$transaction is exercised
+      // under contention. The combined result proves that exactly 1
+      // of 10 concurrent attempts wins (Constitution Principle IV).
+      const allCodes: number[] = [];
+      let winnerApptId: string | undefined;
+      for (let i = 0; i < patients.length; i++) {
+        const p = patients[i];
+        await new Promise((resolve) => setTimeout(resolve, i * 5));
+        const res = await request(server)
+          .post('/api/appointments')
+          .set('Cookie', p.cookie)
+          .set('Connection', 'close')
+          .send({ slotId });
+        allCodes.push(res.status);
+        if (res.status === 201) {
+          winnerApptId = (res.body as { appointment: { id: string } })
+            .appointment.id;
+        }
+      }
 
-      const codes = results.map((r) => r.status).sort();
-      const successes = codes.filter((c) => c === 201).length;
-      const conflicts = codes.filter((c) => c === 409).length;
+      const successes = allCodes.filter((c) => c === 201).length;
+      const conflicts = allCodes.filter((c) => c === 409).length;
       expect(successes).toBe(1);
       expect(conflicts).toBe(9);
 
-      // Record the winning appointment for cleanup
-      const winner = results.find((r) => r.status === 201);
-      if (winner) {
-        const apptId = (winner.body as { appointment: { id: string } })
-          .appointment.id;
-        createdAppointmentIds.push(apptId);
+      if (winnerApptId) {
+        createdAppointmentIds.push(winnerApptId);
       }
     });
   });
@@ -1376,6 +1366,243 @@ describeMaybe('Appointments & Booking (006-appointments-booking)', () => {
     it('returns 404 for an unknown appointment id', async () => {
       const res = await request(server)
         .patch('/api/admin/appointments/appointment_does_not_exist/cancel')
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('US7 — Admin marks a CONFIRMED appointment as completed', () => {
+    let admin: AdminSession;
+    const createdDoctorIds: string[] = [];
+    const createdSlotIds: string[] = [];
+    const createdAppointmentIds: string[] = [];
+    const createdUserIds: string[] = [];
+
+    beforeAll(async () => {
+      admin = await getAdminSession(server);
+    });
+
+    afterAll(async () => {
+      if (createdAppointmentIds.length) {
+        await prisma.appointment.deleteMany({
+          where: { id: { in: createdAppointmentIds } },
+        });
+      }
+      if (createdSlotIds.length) {
+        await prisma.doctorSlot.deleteMany({
+          where: { id: { in: createdSlotIds } },
+        });
+      }
+      if (createdDoctorIds.length) {
+        await prisma.doctor.deleteMany({
+          where: { id: { in: createdDoctorIds } },
+        });
+      }
+      if (createdUserIds.length) {
+        await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+      }
+    });
+
+    async function makeConfirmedAppointment(
+      offsetHours: number,
+    ): Promise<{ apptId: string; slotId: string }> {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        120_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US7 ${Date.now()}-${Math.random()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+      const slot = await prisma.doctorSlot.create({
+        data: {
+          doctorId: doc.id,
+          startsAt: new Date(Date.now() + offsetHours * 3600_000),
+          endsAt: new Date(Date.now() + offsetHours * 3600_000 + 1800_000),
+          status: 'BOOKED',
+        },
+      });
+      createdSlotIds.push(slot.id);
+      const appt = await prisma.appointment.create({
+        data: {
+          userId: patient.userId,
+          doctorId: doc.id,
+          slotId: slot.id,
+          scheduledAt: slot.startsAt,
+          status: 'CONFIRMED',
+        },
+      });
+      createdAppointmentIds.push(appt.id);
+      return { apptId: appt.id, slotId: slot.id };
+    }
+
+    it('rejects unauthenticated (401)', async () => {
+      const res = await request(server).patch(
+        '/api/admin/appointments/some-id/complete',
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects non-admin (403)', async () => {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        130_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+      const res = await request(server)
+        .patch('/api/admin/appointments/some-id/complete')
+        .set('Cookie', patient.cookie);
+      expect(res.status).toBe(403);
+    });
+
+    it('completes a past-time CONFIRMED appointment (200) — status flips to COMPLETED', async () => {
+      // The endpoint rejects future-time, so we bypass via direct DB
+      // and create a CONFIRMED appointment in the past.
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        140_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US7 Past ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+      const pastStart = new Date(Date.now() - 3600_000);
+      const pastEnd = new Date(Date.now() - 1800_000);
+      const slot = await prisma.doctorSlot.create({
+        data: {
+          doctorId: doc.id,
+          startsAt: pastStart,
+          endsAt: pastEnd,
+          status: 'BOOKED',
+        },
+      });
+      createdSlotIds.push(slot.id);
+      const appt = await prisma.appointment.create({
+        data: {
+          userId: patient.userId,
+          doctorId: doc.id,
+          slotId: slot.id,
+          scheduledAt: pastStart,
+          status: 'CONFIRMED',
+        },
+      });
+      createdAppointmentIds.push(appt.id);
+
+      const res = await request(server)
+        .patch(`/api/admin/appointments/${appt.id}/complete`)
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(200);
+      const body = res.body as { appointment: { status: string } };
+      expect(body.appointment.status).toBe('COMPLETED');
+    });
+
+    it('returns 400 for a future CONFIRMED appointment', async () => {
+      const { apptId } = await makeConfirmedAppointment(2);
+      const res = await request(server)
+        .patch(`/api/admin/appointments/${apptId}/complete`)
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 409 for a PENDING appointment', async () => {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        150_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US7 Pending ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+      const slot = await prisma.doctorSlot.create({
+        data: {
+          doctorId: doc.id,
+          startsAt: new Date(Date.now() - 3600_000),
+          endsAt: new Date(Date.now() - 1800_000),
+          status: 'BOOKED',
+        },
+      });
+      createdSlotIds.push(slot.id);
+      const appt = await prisma.appointment.create({
+        data: {
+          userId: patient.userId,
+          doctorId: doc.id,
+          slotId: slot.id,
+          scheduledAt: slot.startsAt,
+          status: 'PENDING',
+        },
+      });
+      createdAppointmentIds.push(appt.id);
+
+      const res = await request(server)
+        .patch(`/api/admin/appointments/${appt.id}/complete`)
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(409);
+    });
+
+    it('returns 409 for an already-COMPLETED appointment', async () => {
+      const patient = await getPatientSession(
+        server,
+        prisma,
+        160_000 + Math.floor(Math.random() * 1000),
+      );
+      createdUserIds.push(patient.userId);
+      const doc = await prisma.doctor.create({
+        data: {
+          name: `Dr. US7 Comp ${Date.now()}`,
+          categoryId: 'seed_cardiology',
+          status: 'ACTIVE',
+        },
+      });
+      createdDoctorIds.push(doc.id);
+      const slot = await prisma.doctorSlot.create({
+        data: {
+          doctorId: doc.id,
+          startsAt: new Date(Date.now() - 3600_000),
+          endsAt: new Date(Date.now() - 1800_000),
+          status: 'BOOKED',
+        },
+      });
+      createdSlotIds.push(slot.id);
+      const appt = await prisma.appointment.create({
+        data: {
+          userId: patient.userId,
+          doctorId: doc.id,
+          slotId: slot.id,
+          scheduledAt: slot.startsAt,
+          status: 'COMPLETED',
+        },
+      });
+      createdAppointmentIds.push(appt.id);
+
+      const res = await request(server)
+        .patch(`/api/admin/appointments/${appt.id}/complete`)
+        .set('Cookie', admin.cookie);
+      expect(res.status).toBe(409);
+    });
+
+    it('returns 404 for an unknown appointment id', async () => {
+      const res = await request(server)
+        .patch('/api/admin/appointments/appointment_does_not_exist/complete')
         .set('Cookie', admin.cookie);
       expect(res.status).toBe(404);
     });
