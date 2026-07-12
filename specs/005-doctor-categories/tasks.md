@@ -30,7 +30,7 @@ This is a single NestJS backend (no frontend). Paths use `src/<feature>/`, `pris
 
 **Purpose**: Branch + module skeleton for the new feature.
 
-- [ ] T001 Create and switch to branch `005-doctor-categories` (`git checkout -b 005-doctor-categories`)
+- [X] T001 Create and switch to branch `005-doctor-categories` (`git checkout -b 005-doctor-categories`)
 
 ---
 
@@ -40,21 +40,21 @@ This is a single NestJS backend (no frontend). Paths use `src/<feature>/`, `pris
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 [P] Add `Category` model to `prisma/schema.prisma` — `id` (cuid PK), `name` (String 1-100), `status` (String default `"ACTIVE"`), `createdAt`, `updatedAt`; `@@unique([name, status])`, `@@index([status])`, `@@map("category")`, back-relation `doctors Doctor[]`
-- [ ] T003 [P] Modify `Doctor` model in `prisma/schema.prisma` — drop `specialty` field and its `@@index([specialty])`; add `categoryId` (String, cuid, NOT NULL) with `category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)` and `@@index([categoryId])`
-- [ ] T004 Run `npx prisma migrate dev --create-only --name add_categories` to scaffold the migration directory at `prisma/migrations/<timestamp>_add_categories/`
-- [ ] T005 Hand-edit the generated `prisma/migrations/<timestamp>_add_categories/migration.sql` to insert the data backfill between the schema steps: (a) `CREATE TABLE "category" ...` + `@@unique` + `@@index([status])`; (b) `ALTER TABLE "doctor" ADD COLUMN "categoryId" TEXT`; (c) idempotent `INSERT INTO "category" ... SELECT DISTINCT specialty ... WHERE NOT EXISTS ...`; (d) `INSERT "General"` fallback only if any doctor has empty/null `specialty`; (e) `UPDATE "doctor" SET "categoryId" = ...` from matching category; (f) backfill null `categoryId` to "General"; (g) `ALTER TABLE "doctor" ALTER COLUMN "categoryId" SET NOT NULL`; (h) `FOREIGN KEY ... ON DELETE RESTRICT` + `CREATE INDEX "doctor_categoryId_idx"`; (i) `DROP INDEX "doctor_specialty_idx"` + `DROP COLUMN "specialty"` — all in a single transaction
-- [ ] T006 Run `npx prisma migrate dev` to apply the migration locally; verify `prisma db studio` shows the new `category` table and that `doctor.specialty` is gone
-- [ ] T007 [P] Update `src/seed/seed.ts` to seed 5 default categories (Cardiology, Pediatrics, Dermatology, Orthopedics, General Practice) using `prisma.category.upsert` with stable deterministic ids (`seed_cardiology`, `seed_pediatrics`, ...) so re-running the seed is idempotent
-- [ ] T008 [P] Create `src/categories/dto/create-category.dto.ts` — `name` (string, 1-100 chars, `@Transform(({ value }) => value?.trim())` + `@IsString()` + `@MinLength(1)` + `@MaxLength(100)`); `status` optional (`@IsIn(['ACTIVE', 'DEACTIVATED'])`, defaults to `ACTIVE` in the service)
-- [ ] T009 [P] Create `src/categories/dto/update-category.dto.ts` — same fields as create, all optional, plus `@ValidateIf` to require at least one of `name`/`status`
-- [ ] T010 [P] Create `src/categories/dto/list-categories.dto.ts` — `status` (optional enum), `search` (optional, max 100), `page` (int >= 1, default 1), `pageSize` (int 1-100, default 20) with class-validator + class-transformer
-- [ ] T011 [P] Create `src/categories/dto/category-response.dto.ts` — `@Expose()`-decorated class with `id`, `name`, `status`, `createdAt`, `updatedAt`; add `@ApiProperty` Swagger decorators
-- [ ] T012 [P] Create `src/categories/dto/public-category.dto.ts` — slim `{ id, name }` shape used by the public endpoint and embedded in doctor records
-- [ ] T013 Create `src/categories/categories.service.ts` with method signatures (bodies filled in US1/US5): `listCategories(query)`, `getCategory(id)`, `createCategory(dto)`, `updateCategory(id, dto)`, `deactivateCategory(id)`, `deleteCategory(id)` (wraps count + delete in `prisma.$transaction`), `listPublicCategories()`. Use `@Injectable()` and inject the global `PrismaService`
-- [ ] T014 Create `src/categories/categories.module.ts` — `@Module({ controllers: [CategoriesController, AdminCategoriesController], providers: [CategoriesService], exports: [CategoriesService] })`. Import nothing (uses global `PrismaService`); controller files are created in US1 and US5
-- [ ] T015 Register `CategoriesModule` in the `imports` array of `src/app.module.ts` (add alongside `AdminModule` and `DoctorsModule`)
-- [ ] T016 Create skeleton `test/categories.e2e-spec.ts` with the standard test setup (Supertest app, admin sign-in helper, doctor fixture helper) — no test cases yet, ready to receive per-story tests
+- [X] T002 [P] Add `Category` model to `prisma/schema.prisma` — `id` (cuid PK), `name` (String 1-100), `status` (String default `"ACTIVE"`), `createdAt`, `updatedAt`; `@@unique([name, status])`, `@@index([status])`, `@@map("category")`, back-relation `doctors Doctor[]`
+- [X] T003 [P] Modify `Doctor` model in `prisma/schema.prisma` — drop `specialty` field and its `@@index([specialty])`; add `categoryId` (String, cuid, NOT NULL) with `category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)` and `@@index([categoryId])`
+- [X] T004 Run `npx prisma migrate dev --create-only --name add_categories` to scaffold the migration directory at `prisma/migrations/<timestamp>_add_categories/`
+- [X] T005 Hand-edit the generated `prisma/migrations/<timestamp>_add_categories/migration.sql` to insert the data backfill between the schema steps: (a) `CREATE TABLE "category" ...` + `@@unique` + `@@index([status])`; (b) `ALTER TABLE "doctor" ADD COLUMN "categoryId" TEXT`; (c) idempotent `INSERT INTO "category" ... SELECT DISTINCT specialty ... WHERE NOT EXISTS ...`; (d) `INSERT "General"` fallback only if any doctor has empty/null `specialty`; (e) `UPDATE "doctor" SET "categoryId" = ...` from matching category; (f) backfill null `categoryId` to "General"; (g) `ALTER TABLE "doctor" ALTER COLUMN "categoryId" SET NOT NULL`; (h) `FOREIGN KEY ... ON DELETE RESTRICT` + `CREATE INDEX "doctor_categoryId_idx"`; (i) `DROP INDEX "doctor_specialty_idx"` + `DROP COLUMN "specialty"` — all in a single transaction
+- [X] T006 Run `npx prisma migrate dev` to apply the migration locally; verify `prisma db studio` shows the new `category` table and that `doctor.specialty` is gone
+- [X] T007 [P] Update `src/seed/seed.ts` to seed 5 default categories (Cardiology, Pediatrics, Dermatology, Orthopedics, General Practice) using `prisma.category.upsert` with stable deterministic ids (`seed_cardiology`, `seed_pediatrics`, ...) so re-running the seed is idempotent
+- [X] T008 [P] Create `src/categories/dto/create-category.dto.ts` — `name` (string, 1-100 chars, `@Transform(({ value }) => value?.trim())` + `@IsString()` + `@MinLength(1)` + `@MaxLength(100)`); `status` optional (`@IsIn(['ACTIVE', 'DEACTIVATED'])`, defaults to `ACTIVE` in the service)
+- [X] T009 [P] Create `src/categories/dto/update-category.dto.ts` — same fields as create, all optional, plus `@ValidateIf` to require at least one of `name`/`status`
+- [X] T010 [P] Create `src/categories/dto/list-categories.dto.ts` — `status` (optional enum), `search` (optional, max 100), `page` (int >= 1, default 1), `pageSize` (int 1-100, default 20) with class-validator + class-transformer
+- [X] T011 [P] Create `src/categories/dto/category-response.dto.ts` — `@Expose()`-decorated class with `id`, `name`, `status`, `createdAt`, `updatedAt`; add `@ApiProperty` Swagger decorators
+- [X] T012 [P] Create `src/categories/dto/public-category.dto.ts` — slim `{ id, name }` shape used by the public endpoint and embedded in doctor records
+- [X] T013 Create `src/categories/categories.service.ts` with method signatures (bodies filled in US1/US5): `listCategories(query)`, `getCategory(id)`, `createCategory(dto)`, `updateCategory(id, dto)`, `deactivateCategory(id)`, `deleteCategory(id)` (wraps count + delete in `prisma.$transaction`), `listPublicCategories()`. Use `@Injectable()` and inject the global `PrismaService`
+- [X] T014 Create `src/categories/categories.module.ts` — `@Module({ controllers: [CategoriesController, AdminCategoriesController], providers: [CategoriesService], exports: [CategoriesService] })`. Import nothing (uses global `PrismaService`); controller files are created in US1 and US5
+- [X] T015 Register `CategoriesModule` in the `imports` array of `src/app.module.ts` (add alongside `AdminModule` and `DoctorsModule`)
+- [X] T016 Create skeleton `test/categories.e2e-spec.ts` with the standard test setup (Supertest app, admin sign-in helper, doctor fixture helper) — no test cases yet, ready to receive per-story tests
 
 **Checkpoint**: Foundation ready — `Category` table exists with backfilled data, `Doctor.categoryId` is NOT NULL with FK, module skeleton registered, seed populates default categories. User story implementation can now begin.
 
@@ -70,15 +70,15 @@ This is a single NestJS backend (no frontend). Paths use `src/<feature>/`, `pris
 
 > Write these tests FIRST, ensure they FAIL before implementation.
 
-- [ ] T017 [P] [US1] Add e2e tests in `test/categories.e2e-spec.ts` covering US1: create-unique-name (200), create-duplicate-case-insensitive (409/400), list-with-pagination, list-with-search, list-with-status-filter, get-one (200), get-missing (404), patch-name, patch-status, patch-deactivate-subresource (200), patch-deactivate-already-deactivated (200 idempotent), delete-unused (204), delete-in-use (409), non-admin-request (403), unauthenticated (401)
+- [X] T017 [P] [US1] Add e2e tests in `test/categories.e2e-spec.ts` covering US1: create-unique-name (200), create-duplicate-case-insensitive (409/400), list-with-pagination, list-with-search, list-with-status-filter, get-one (200), get-missing (404), patch-name, patch-status, patch-deactivate-subresource (200), patch-deactivate-already-deactivated (200 idempotent), delete-unused (204), delete-in-use (409), non-admin-request (403), unauthenticated (401)
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Create `src/categories/admin-categories.controller.ts` — `@Controller('api/admin/categories')`, `@UseGuards(RolesGuard)` + `@Roles('admin')` (import `RolesGuard` from `src/common/guards/`; if not yet extracted, import from `src/admin/admin.module.ts` per R1's gotcha). Six `@HttpCode`-appropriate methods: `GET` (list) `GET :id`, `POST` (201), `PATCH :id`, `PATCH :id/deactivate`, `DELETE :id` (204). All methods delegate to `CategoriesService`
-- [ ] T019 [US1] Fill `CategoriesService` methods for US1: `listCategories` (Prisma `findMany` + `count` with `status`/`search` filters and pagination), `getCategory` (`findUnique` → throw `NotFoundException` if null), `createCategory` (case-insensitive `findFirst` for existing ACTIVE name → throw `ConflictException`; trim name; `create`), `updateCategory` (validate existence; same case-insensitive collision check when `name` supplied; `update`), `deactivateCategory` (set `status: 'DEACTIVATED'`), `deleteCategory` (`prisma.$transaction` with `tx.doctor.count({ where: { categoryId: id } })` → throw `ConflictException` if > 0, else `tx.category.delete`)
-- [ ] T020 [P] [US1] Add unit tests in `src/categories/categories.service.spec.ts`: `createCategory` rejects duplicate ACTIVE name (case-insensitive: "Cardiology" vs "cardiology"), `createCategory` trims whitespace, `createCategory` allows a DEACTIVATED duplicate, `updateCategory` rejects rename collision, `deleteCategory` throws 409 and does not call `delete` when `doctor.count > 0` (verify `$transaction` was used), `listPublicCategories` returns ACTIVE only and sorts case-insensitively
-- [ ] T021 [US1] Run `npm test -- src/categories` — confirm new unit tests pass and existing tests still green
-- [ ] T022 [US1] Run `test/categories.e2e-spec.ts` against a running dev DB (`docker compose -f docker-compose.dev.yml up -d postgres` + `npm run db:migrate` + `npm run db:seed`) — confirm all US1 e2e scenarios pass
+- [X] T018 [US1] Create `src/categories/admin-categories.controller.ts` — `@Controller('api/admin/categories')`, `@UseGuards(RolesGuard)` + `@Roles('admin')` (import `RolesGuard` from `src/common/guards/`; if not yet extracted, import from `src/admin/admin.module.ts` per R1's gotcha). Six `@HttpCode`-appropriate methods: `GET` (list) `GET :id`, `POST` (201), `PATCH :id`, `PATCH :id/deactivate`, `DELETE :id` (204). All methods delegate to `CategoriesService`
+- [X] T019 [US1] Fill `CategoriesService` methods for US1: `listCategories` (Prisma `findMany` + `count` with `status`/`search` filters and pagination), `getCategory` (`findUnique` → throw `NotFoundException` if null), `createCategory` (case-insensitive `findFirst` for existing ACTIVE name → throw `ConflictException`; trim name; `create`), `updateCategory` (validate existence; same case-insensitive collision check when `name` supplied; `update`), `deactivateCategory` (set `status: 'DEACTIVATED'`), `deleteCategory` (`prisma.$transaction` with `tx.doctor.count({ where: { categoryId: id } })` → throw `ConflictException` if > 0, else `tx.category.delete`)
+- [X] T020 [P] [US1] Add unit tests in `src/categories/categories.service.spec.ts`: `createCategory` rejects duplicate ACTIVE name (case-insensitive: "Cardiology" vs "cardiology"), `createCategory` trims whitespace, `createCategory` allows a DEACTIVATED duplicate, `updateCategory` rejects rename collision, `deleteCategory` throws 409 and does not call `delete` when `doctor.count > 0` (verify `$transaction` was used), `listPublicCategories` returns ACTIVE only and sorts case-insensitively
+- [X] T021 [US1] Run `npm test -- src/categories` — confirm new unit tests pass and existing tests still green
+- [X] T022 [US1] Run `test/categories.e2e-spec.ts` against a running dev DB (`docker compose -f docker-compose.dev.yml up -d postgres` + `npm run db:migrate` + `npm run db:seed`) — confirm all US1 e2e scenarios pass
 
 **Checkpoint**: US1 fully functional and independently testable. Super Admin can manage the category catalog end-to-end.
 
@@ -92,16 +92,16 @@ This is a single NestJS backend (no frontend). Paths use `src/<feature>/`, `pris
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T023 [P] [US2] Add unit tests in `src/admin/admin.service.spec.ts` for `createDoctor`: missing `categoryId` is rejected by the DTO layer (validation test), non-existent `categoryId` returns 404, DEACTIVATED `categoryId` returns 400, valid ACTIVE `categoryId` succeeds and the returned record includes `category: { id, name }`. Mock `prisma.category.findUnique` to return the appropriate row
-- [ ] T024 [P] [US2] Add e2e tests in `test/categories.e2e-spec.ts` for the create-doctor flow: 201-with-category for valid input, 400-missing for omitted `categoryId`, 404 for bogus `categoryId`, 400 for DEACTIVATED `categoryId`
+- [X] T023 [P] [US2] Add unit tests in `src/admin/admin.service.spec.ts` for `createDoctor`: missing `categoryId` is rejected by the DTO layer (validation test), non-existent `categoryId` returns 404, DEACTIVATED `categoryId` returns 400, valid ACTIVE `categoryId` succeeds and the returned record includes `category: { id, name }`. Mock `prisma.category.findUnique` to return the appropriate row
+- [X] T024 [P] [US2] Add e2e tests in `test/categories.e2e-spec.ts` for the create-doctor flow: 201-with-category for valid input, 400-missing for omitted `categoryId`, 404 for bogus `categoryId`, 400 for DEACTIVATED `categoryId`
 
 ### Implementation for User Story 2
 
-- [ ] T025 [P] [US2] Update `src/admin/dto/create-doctor.dto.ts` — remove `specialty` field; add required `categoryId` (`@IsString()`, `@IsNotEmpty()`)
-- [ ] T026 [P] [US2] Update `src/admin/dto/list-doctors.dto.ts` — remove `specialty` filter; add optional `categoryId` (`@IsString()`, `@IsOptional()`)
-- [ ] T027 [US2] Update `src/admin/admin.service.ts` `createDoctor`: after the DTO passes, call `prisma.category.findUnique({ where: { id: dto.categoryId }, select: { id: true, status: true } })` — throw `NotFoundException` if null, `BadRequestException` if `status !== 'ACTIVE'`. Then create the doctor with `prisma.doctor.create({ data: { ...dto, categoryId: dto.categoryId }, include: { category: { select: { id: true, name: true } } } })` and return the `DoctorRecord` with nested `category`
-- [ ] T028 [US2] Update `src/admin/admin.service.ts` `listDoctors`: accept the new `categoryId` filter; build the Prisma `where` accordingly. Rewrite the `search` clause to match `name` OR `category.name` (via the relation). Include `category: { select: { id, name } }` in the result
-- [ ] T029 [US2] Run `npm test` and the new e2e tests for US2 — confirm pass
+- [X] T025 [P] [US2] Update `src/admin/dto/create-doctor.dto.ts` — remove `specialty` field; add required `categoryId` (`@IsString()`, `@IsNotEmpty()`)
+- [X] T026 [P] [US2] Update `src/admin/dto/list-doctors.dto.ts` — remove `specialty` filter; add optional `categoryId` (`@IsString()`, `@IsOptional()`)
+- [X] T027 [US2] Update `src/admin/admin.service.ts` `createDoctor`: after the DTO passes, call `prisma.category.findUnique({ where: { id: dto.categoryId }, select: { id: true, status: true } })` — throw `NotFoundException` if null, `BadRequestException` if `status !== 'ACTIVE'`. Then create the doctor with `prisma.doctor.create({ data: { ...dto, categoryId: dto.categoryId }, include: { category: { select: { id: true, name: true } } } })` and return the `DoctorRecord` with nested `category`
+- [X] T028 [US2] Update `src/admin/admin.service.ts` `listDoctors`: accept the new `categoryId` filter; build the Prisma `where` accordingly. Rewrite the `search` clause to match `name` OR `category.name` (via the relation). Include `category: { select: { id, name } }` in the result
+- [X] T029 [US2] Run `npm test` and the new e2e tests for US2 — confirm pass
 
 **Checkpoint**: US2 functional. Admins can create doctors only with valid ACTIVE categoryIds. Listing filters by category.
 
@@ -115,13 +115,13 @@ This is a single NestJS backend (no frontend). Paths use `src/<feature>/`, `pris
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T030 [P] [US3] Add unit tests in `src/admin/admin.service.spec.ts` for `updateDoctor`: omit `categoryId` → existing value preserved (Prisma `update` called without `categoryId` in data), supply valid `categoryId` → updated, supply DEACTIVATED `categoryId` → 400, supply bogus `categoryId` → 404
+- [X] T030 [P] [US3] Add unit tests in `src/admin/admin.service.spec.ts` for `updateDoctor`: omit `categoryId` → existing value preserved (Prisma `update` called without `categoryId` in data), supply valid `categoryId` → updated, supply DEACTIVATED `categoryId` → 400, supply bogus `categoryId` → 404
 
 ### Implementation for User Story 3
 
-- [ ] T031 [P] [US3] Update `src/admin/dto/update-doctor.dto.ts` — remove `specialty`; add optional `categoryId` (`@IsString()`, `@IsOptional()`); ensure at-least-one-field validation still holds
-- [ ] T032 [US3] Update `src/admin/admin.service.ts` `updateDoctor`: when `dto.categoryId` is supplied, run the same `findUnique` + status check as US2; then call `prisma.doctor.update({ where: { id }, data: { ...rest, categoryId: dto.categoryId }, include: { category: { select: { id, name } } } })`
-- [ ] T033 [US3] Run `npm test` and the e2e tests for US3 — confirm pass
+- [X] T031 [P] [US3] Update `src/admin/dto/update-doctor.dto.ts` — remove `specialty`; add optional `categoryId` (`@IsString()`, `@IsOptional()`); ensure at-least-one-field validation still holds
+- [X] T032 [US3] Update `src/admin/admin.service.ts` `updateDoctor`: when `dto.categoryId` is supplied, run the same `findUnique` + status check as US2; then call `prisma.doctor.update({ where: { id }, data: { ...rest, categoryId: dto.categoryId }, include: { category: { select: { id, name } } } })`
+- [X] T033 [US3] Run `npm test` and the e2e tests for US3 — confirm pass
 
 **Checkpoint**: US3 functional. Admins can re-categorize a doctor.
 
@@ -135,14 +135,14 @@ This is a single NestJS backend (no frontend). Paths use `src/<feature>/`, `pris
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T034 [P] [US4] Add e2e tests in `test/categories.e2e-spec.ts` for the public listing with `categoryId`: no filter (regression), `?categoryId=<A>` returns only A doctors, `?categoryId=<A>` + `?search=<A-specific-term>` returns the AND intersection, `?categoryId=<DEACTIVATED>` returns empty array, `?specialty=<text>` is ignored / rejected (verify the legacy param is removed)
+- [X] T034 [P] [US4] Add e2e tests in `test/categories.e2e-spec.ts` for the public listing with `categoryId`: no filter (regression), `?categoryId=<A>` returns only A doctors, `?categoryId=<A>` + `?search=<A-specific-term>` returns the AND intersection, `?categoryId=<DEACTIVATED>` returns empty array, `?specialty=<text>` is ignored / rejected (verify the legacy param is removed)
 
 ### Implementation for User Story 4
 
-- [ ] T035 [P] [US4] Update `src/doctors/dto/list-doctors.dto.ts` — remove `specialty`; add optional `categoryId` (`@IsString()`, `@IsOptional()`)
-- [ ] T036 [US4] Update `src/doctors/doctors.service.ts` `listPublicDoctors`: build the `where` clause with `status: 'ACTIVE'`; if `query.categoryId`, set `categoryId: query.categoryId` AND `category: { status: 'ACTIVE' }`; if `query.search`, set `OR: [{ name: { contains: search, mode: 'insensitive' } }, { category: { name: { contains: search, mode: 'insensitive' } } }]`. Add `include: { category: { select: { id: true, name: true } } }` to the Prisma call. Update the mapper to produce `category: { id, name }` in each record
-- [ ] T037 [P] [US4] Update unit tests in `src/doctors/doctors.service.spec.ts`: replace the `specialty` filter cases with `categoryId` cases; add a case for the `search` OR-clause now hitting `category.name`; add a case for `categoryId` + DEACTIVATED category → empty
-- [ ] T038 [US4] Run `npm test` and the e2e tests for US4 — confirm pass; verify the existing public-listing regression cases still pass
+- [X] T035 [P] [US4] Update `src/doctors/dto/list-doctors.dto.ts` — remove `specialty`; add optional `categoryId` (`@IsString()`, `@IsOptional()`)
+- [X] T036 [US4] Update `src/doctors/doctors.service.ts` `listPublicDoctors`: build the `where` clause with `status: 'ACTIVE'`; if `query.categoryId`, set `categoryId: query.categoryId` AND `category: { status: 'ACTIVE' }`; if `query.search`, set `OR: [{ name: { contains: search, mode: 'insensitive' } }, { category: { name: { contains: search, mode: 'insensitive' } } }]`. Add `include: { category: { select: { id: true, name: true } } }` to the Prisma call. Update the mapper to produce `category: { id, name }` in each record
+- [X] T037 [P] [US4] Update unit tests in `src/doctors/doctors.service.spec.ts`: replace the `specialty` filter cases with `categoryId` cases; add a case for the `search` OR-clause now hitting `category.name`; add a case for `categoryId` + DEACTIVATED category → empty
+- [X] T038 [US4] Run `npm test` and the e2e tests for US4 — confirm pass; verify the existing public-listing regression cases still pass
 
 **Checkpoint**: US4 functional. Public catalog filterable by category.
 
@@ -156,13 +156,13 @@ This is a single NestJS backend (no frontend). Paths use `src/<feature>/`, `pris
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T039 [P] [US5] Add e2e tests in `test/categories.e2e-spec.ts` for the public categories endpoint: returns 200 with `{ categories: [{ id, name }, ...] }`, only ACTIVE rows present, sorted case-insensitively (e.g. "Dermatology" before "cardiology"), empty array when no categories exist, no authentication required (200 without cookie), `Cache-Control: public, max-age=300` header present, rate-limited via `@nestjs/throttler`
+- [X] T039 [P] [US5] Add e2e tests in `test/categories.e2e-spec.ts` for the public categories endpoint: returns 200 with `{ categories: [{ id, name }, ...] }`, only ACTIVE rows present, sorted case-insensitively (e.g. "Dermatology" before "cardiology"), empty array when no categories exist, no authentication required (200 without cookie), `Cache-Control: public, max-age=300` header present, rate-limited via `@nestjs/throttler`
 
 ### Implementation for User Story 5
 
-- [ ] T040 [P] [US5] Create `src/categories/categories.controller.ts` — `@Controller('api/categories')`, single `@Get()` method `list()` returning `{ categories: PublicCategoryDto[] }`. Decorate with `@AllowAnonymous()`, `@Throttle({ default: { limit: 60, ttl: 60_000 } })`, `@Header('Cache-Control', 'public, max-age=300')`, and `@ApiOperation`/`@ApiResponse` Swagger blocks
-- [ ] T041 [US5] Fill `CategoriesService.listPublicCategories`: `prisma.category.findMany({ where: { status: 'ACTIVE' }, select: { id: true, name: true }, orderBy: { name: 'asc' } })` then apply a JS-side `localeCompare(undefined, { sensitivity: 'base' })` as a defensive case-insensitive sort; map to `PublicCategoryDto[]`
-- [ ] T042 [US5] Run `npm test` and the e2e tests for US5 — confirm pass
+- [X] T040 [P] [US5] Create `src/categories/categories.controller.ts` — `@Controller('api/categories')`, single `@Get()` method `list()` returning `{ categories: PublicCategoryDto[] }`. Decorate with `@AllowAnonymous()`, `@Throttle({ default: { limit: 60, ttl: 60_000 } })`, `@Header('Cache-Control', 'public, max-age=300')`, and `@ApiOperation`/`@ApiResponse` Swagger blocks
+- [X] T041 [US5] Fill `CategoriesService.listPublicCategories`: `prisma.category.findMany({ where: { status: 'ACTIVE' }, select: { id: true, name: true }, orderBy: { name: 'asc' } })` then apply a JS-side `localeCompare(undefined, { sensitivity: 'base' })` as a defensive case-insensitive sort; map to `PublicCategoryDto[]`
+- [X] T042 [US5] Run `npm test` and the e2e tests for US5 — confirm pass
 
 **Checkpoint**: US5 functional. Public dropdown is populated.
 
@@ -176,13 +176,13 @@ This is a single NestJS backend (no frontend). Paths use `src/<feature>/`, `pris
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T043 [P] [US6] Add e2e tests in `test/categories.e2e-spec.ts` for the public profile: ACTIVE doctor + ACTIVE category → 200 with `category: { id, name }`; DEACTIVATED doctor → 404 (regression); ACTIVE doctor with DEACTIVATED category → 404 (new)
+- [X] T043 [P] [US6] Add e2e tests in `test/categories.e2e-spec.ts` for the public profile: ACTIVE doctor + ACTIVE category → 200 with `category: { id, name }`; DEACTIVATED doctor → 404 (regression); ACTIVE doctor with DEACTIVATED category → 404 (new)
 
 ### Implementation for User Story 6
 
-- [ ] T044 [US6] Update `src/doctors/doctors.service.ts` `getPublicDoctor`: `prisma.doctor.findFirst({ where: { id, status: 'ACTIVE', category: { status: 'ACTIVE' } }, include: { category: { select: { id: true, name: true } } } })`; if null, return null (the controller throws 404). Add `category` to the `PublicDoctorRecord` mapper
-- [ ] T045 [P] [US6] Update unit tests in `src/doctors/doctors.service.spec.ts`: add a case asserting `category: { id, name }` is included for ACTIVE doctor + ACTIVE category; add a case asserting null when the category is DEACTIVATED even if the doctor is ACTIVE
-- [ ] T046 [US6] Run `npm test` and the e2e tests for US6 — confirm pass
+- [X] T044 [US6] Update `src/doctors/doctors.service.ts` `getPublicDoctor`: `prisma.doctor.findFirst({ where: { id, status: 'ACTIVE', category: { status: 'ACTIVE' } }, include: { category: { select: { id: true, name: true } } } })`; if null, return null (the controller throws 404). Add `category` to the `PublicDoctorRecord` mapper
+- [X] T045 [P] [US6] Update unit tests in `src/doctors/doctors.service.spec.ts`: add a case asserting `category: { id, name }` is included for ACTIVE doctor + ACTIVE category; add a case asserting null when the category is DEACTIVATED even if the doctor is ACTIVE
+- [X] T046 [US6] Run `npm test` and the e2e tests for US6 — confirm pass
 
 **Checkpoint**: US6 functional. Public profile carries category.
 
@@ -192,17 +192,17 @@ This is a single NestJS backend (no frontend). Paths use `src/<feature>/`, `pris
 
 **Purpose**: Cleanup of legacy `specialty` surface, docs, and end-to-end validation.
 
-- [ ] T047 [P] Remove `listSpecialties()` method from `src/doctors/doctors.service.ts` (no longer used)
-- [ ] T048 [P] Remove the `GET /api/specialties` controller method (and its Swagger block) from `src/doctors/doctors.controller.ts`
-- [ ] T049 [P] Update `test/doctors-public.e2e-spec.ts`: remove the `specialty`-related test cases and the `specialties` endpoint tests; switch any references to `/api/categories` for the dropdown coverage
-- [ ] T050 [P] Search the repo for any remaining `specialty` references (`rg -n "specialty" src/ test/ prisma/`) and remove or migrate each one (no source-of-truth references should remain)
-- [ ] T051 Update `README.md`: add the `Public Categories Endpoint` table (`GET /api/categories`); add the `Admin Categories Endpoints` table under the admin section; replace the `Public Doctor Endpoints` table's `?specialty=` row with `?categoryId=<id>`; add a short note on the `Category` model
-- [ ] T052 [P] Verify Swagger UI (`/api/docs`) renders all new endpoints correctly and the schemas show `category: { id, name }` (not `specialty`)
-- [ ] T053 Run `npm test` — all unit + e2e suites pass
-- [ ] T054 Run `npm run lint` — no new errors introduced
-- [ ] T055 Run `npm run build` — TypeScript build succeeds
-- [ ] T056 Run the manual quickstart validation scenarios in `specs/005-doctor-categories/quickstart.md` against a running dev stack (`docker compose -f docker-compose.dev.yml up -d postgres` + `npm run db:migrate` + `npm run db:seed` + `npm run start:dev`) — confirm every scenario passes end-to-end
-- [ ] T057 Commit and push branch `005-doctor-categories` for review (do NOT merge to `main` until user confirms)
+- [X] T047 [P] Remove `listSpecialties()` method from `src/doctors/doctors.service.ts` (no longer used)
+- [X] T048 [P] Remove the `GET /api/specialties` controller method (and its Swagger block) from `src/doctors/doctors.controller.ts`
+- [X] T049 [P] Update `test/doctors-public.e2e-spec.ts`: remove the `specialty`-related test cases and the `specialties` endpoint tests; switch any references to `/api/categories` for the dropdown coverage
+- [X] T050 [P] Search the repo for any remaining `specialty` references (`rg -n "specialty" src/ test/ prisma/`) and remove or migrate each one (no source-of-truth references should remain)
+- [X] T051 Update `README.md`: add the `Public Categories Endpoint` table (`GET /api/categories`); add the `Admin Categories Endpoints` table under the admin section; replace the `Public Doctor Endpoints` table's `?specialty=` row with `?categoryId=<id>`; add a short note on the `Category` model
+- [X] T052 [P] Verify Swagger UI (`/api/docs`) renders all new endpoints correctly and the schemas show `category: { id, name }` (not `specialty`)
+- [X] T053 Run `npm test` — all unit + e2e suites pass
+- [X] T054 Run `npm run lint` — no new errors introduced
+- [X] T055 Run `npm run build` — TypeScript build succeeds
+- [X] T056 Run the manual quickstart validation scenarios in `specs/005-doctor-categories/quickstart.md` against a running dev stack (`docker compose -f docker-compose.dev.yml up -d postgres` + `npm run db:migrate` + `npm run db:seed` + `npm run start:dev`) — confirm every scenario passes end-to-end
+- [X] T057 Commit and push branch `005-doctor-categories` for review (do NOT merge to `main` until user confirms)
 
 ---
 

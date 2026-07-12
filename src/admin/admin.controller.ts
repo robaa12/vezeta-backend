@@ -57,7 +57,7 @@ export class AdminController {
   @ApiOperation({
     summary: 'List doctors',
     description:
-      'Returns doctors with optional status, specialty, search filters and pagination.',
+      'Returns doctors with optional status, categoryId, search filters and pagination.',
   })
   @ApiOkResponse({
     description: 'Doctors and pagination metadata.',
