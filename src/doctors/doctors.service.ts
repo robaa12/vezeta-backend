@@ -7,6 +7,14 @@ export interface PublicCategoryRef {
   name: string;
 }
 
+export interface PublicDoctorServiceRef {
+  id: string;
+  name: string;
+  price: number | null;
+  discountPercent: number | null;
+  finalPrice: number | null;
+}
+
 export interface PublicDoctorRecord {
   id: string;
   name: string;
@@ -14,6 +22,7 @@ export interface PublicDoctorRecord {
   bio: string | null;
   imageUrl: string | null;
   status: 'ACTIVE' | 'DEACTIVATED';
+  services: PublicDoctorServiceRef[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -97,12 +106,20 @@ export class DoctorsService {
    * Fetch one ACTIVE doctor by id. Returns null for non-existent,
    * DEACTIVATED, or doctors whose category is DEACTIVATED — the
    * controller throws 404 to keep the cases indistinguishable from
-   * the client's perspective (FR-006, US6).
+   * the client's perspective (FR-006, US6). The response includes
+   * the doctor's ACTIVE services (per feature 007); DEACTIVATED
+   * services are hidden from the public surface.
    */
   async getPublicDoctor(id: string): Promise<PublicDoctorRecord | null> {
     const doctor = await this.prisma.doctor.findFirst({
       where: { id, status: 'ACTIVE', category: { status: 'ACTIVE' } },
-      include: { category: { select: { id: true, name: true } } },
+      include: {
+        category: { select: { id: true, name: true } },
+        services: {
+          where: { status: 'ACTIVE' },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
     return doctor ? this.toPublicRecord(doctor) : null;
   }
@@ -133,6 +150,12 @@ export class DoctorsService {
     createdAt: Date;
     updatedAt: Date;
     category?: { id: string; name: string } | null;
+    services?: Array<{
+      id: string;
+      name: string;
+      price: { toNumber(): number } | number | null;
+      discountPercent: number | null;
+    }>;
   }): PublicDoctorRecord {
     return {
       id: d.id,
@@ -144,8 +167,40 @@ export class DoctorsService {
       bio: d.bio,
       imageUrl: d.imageUrl,
       status: d.status as PublicDoctorRecord['status'],
+      services: (d.services ?? []).map((s) => this.toPublicService(s)),
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
     };
+  }
+
+  private toPublicService(s: {
+    id: string;
+    name: string;
+    price: { toNumber(): number } | number | null;
+    discountPercent: number | null;
+  }): PublicDoctorServiceRef {
+    const price =
+      s.price === null || s.price === undefined
+        ? null
+        : typeof s.price === 'number'
+          ? s.price
+          : s.price.toNumber();
+    return {
+      id: s.id,
+      name: s.name,
+      price,
+      discountPercent: s.discountPercent,
+      finalPrice: this.computeFinalPrice(price, s.discountPercent),
+    };
+  }
+
+  private computeFinalPrice(
+    price: number | null,
+    discountPercent: number | null,
+  ): number | null {
+    if (price === null) return null;
+    if (discountPercent === null || discountPercent === 0) return price;
+    const discounted = price * (1 - discountPercent / 100);
+    return Math.round(discounted * 100) / 100;
   }
 }

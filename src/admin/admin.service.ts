@@ -15,6 +15,15 @@ export interface DoctorCategoryRef {
   name: string;
 }
 
+export interface DoctorServiceRef {
+  id: string;
+  name: string;
+  price: number | null;
+  discountPercent: number | null;
+  finalPrice: number | null;
+  status: 'ACTIVE' | 'DEACTIVATED';
+}
+
 export interface DoctorRecord {
   id: string;
   name: string;
@@ -22,6 +31,7 @@ export interface DoctorRecord {
   bio: string | null;
   imageUrl: string | null;
   status: 'ACTIVE' | 'DEACTIVATED';
+  services: DoctorServiceRef[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -109,7 +119,10 @@ export class AdminService {
   async getDoctor(id: string): Promise<DoctorRecord> {
     const doctor = await this.prisma.doctor.findUnique({
       where: { id },
-      include: { category: { select: { id: true, name: true } } },
+      include: {
+        category: { select: { id: true, name: true } },
+        services: { orderBy: [{ status: 'asc' }, { createdAt: 'desc' }] },
+      },
     });
     if (!doctor) {
       throw new NotFoundException('Doctor not found');
@@ -437,6 +450,13 @@ export class AdminService {
     createdAt: Date;
     updatedAt: Date;
     category?: { id: string; name: string } | null;
+    services?: Array<{
+      id: string;
+      name: string;
+      price: { toNumber(): number } | number | null;
+      discountPercent: number | null;
+      status: string;
+    }>;
   }): DoctorRecord {
     return {
       id: d.id,
@@ -448,9 +468,35 @@ export class AdminService {
       bio: d.bio,
       imageUrl: d.imageUrl,
       status: d.status as DoctorRecord['status'],
+      services: (d.services ?? []).map((s) => {
+        const price =
+          s.price === null || s.price === undefined
+            ? null
+            : typeof s.price === 'number'
+              ? s.price
+              : s.price.toNumber();
+        return {
+          id: s.id,
+          name: s.name,
+          price,
+          discountPercent: s.discountPercent,
+          finalPrice: this.computeFinalPrice(price, s.discountPercent),
+          status: s.status as DoctorServiceRef['status'],
+        };
+      }),
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
     };
+  }
+
+  private computeFinalPrice(
+    price: number | null,
+    discountPercent: number | null,
+  ): number | null {
+    if (price === null) return null;
+    if (discountPercent === null || discountPercent === 0) return price;
+    const discounted = price * (1 - discountPercent / 100);
+    return Math.round(discounted * 100) / 100;
   }
 }
 

@@ -21,6 +21,7 @@ const baseRecord = {
   bio: '20 years of experience.',
   imageUrl: null,
   status: 'ACTIVE',
+  services: [],
   createdAt: new Date('2026-07-11T10:00:00Z'),
   updatedAt: new Date('2026-07-11T10:00:00Z'),
 };
@@ -206,6 +207,71 @@ describe('DoctorsService — getPublicDoctor', () => {
         status: 'ACTIVE',
         category: { status: 'ACTIVE' },
       },
+    });
+  });
+
+  it('includes ACTIVE services with computed finalPrice', async () => {
+    prisma.doctor.findFirst.mockResolvedValueOnce({
+      ...baseRecord,
+      services: [
+        {
+          id: 's1',
+          name: 'Consultation',
+          price: { toNumber: () => 100 },
+          discountPercent: 10,
+        },
+        {
+          id: 's2',
+          name: 'Follow-up',
+          price: null,
+          discountPercent: null,
+        },
+        {
+          id: 's3',
+          name: 'Free check',
+          price: { toNumber: () => 0 },
+          discountPercent: 0,
+        },
+      ],
+    });
+    const result = await service.getPublicDoctor('d1');
+    expect(result?.services).toHaveLength(3);
+    expect(result?.services[0]).toEqual({
+      id: 's1',
+      name: 'Consultation',
+      price: 100,
+      discountPercent: 10,
+      finalPrice: 90,
+    });
+    expect(result?.services[1]).toEqual({
+      id: 's2',
+      name: 'Follow-up',
+      price: null,
+      discountPercent: null,
+      finalPrice: null,
+    });
+    expect(result?.services[2]).toEqual({
+      id: 's3',
+      name: 'Free check',
+      price: 0,
+      discountPercent: 0,
+      finalPrice: 0,
+    });
+  });
+
+  it('passes services: { status: "ACTIVE" } include so DEACTIVATED services are hidden', async () => {
+    prisma.doctor.findFirst.mockResolvedValueOnce(baseRecord);
+    await service.getPublicDoctor('d1');
+    const args = prisma.doctor.findFirst.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(args).toMatchObject({
+      include: expect.objectContaining({
+        services: expect.objectContaining({
+          where: { status: 'ACTIVE' },
+        }),
+      }),
     });
   });
 });

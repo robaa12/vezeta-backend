@@ -125,15 +125,42 @@ model Doctor {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category       Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   slots          DoctorSlot[]
   appointments   Appointment[]
   reviews        Review[]
   medicalRecords MedicalRecord[]
+  services       DoctorService[]
 
   @@index([status])
   @@index([categoryId])
   @@map("doctor")
+}
+
+// DoctorService is a per-doctor catalog of services the doctor offers
+// (e.g. "Consultation", "ECG"). Each row is a free-text name attached
+// to a specific doctor — there is no shared global catalog. Price is
+// optional (some services like "Follow-up" may be free); discountPercent
+// is optional and only meaningful when a price is set (enforced in the
+// DTO). Lifecycle mirrors Doctor/Category: ACTIVE by default, soft
+// deactivation supported. Hard-deleting the doctor cascades the
+// services (ON DELETE CASCADE) — no clinical history is attached to a
+// service so audit trail is unaffected.
+model DoctorService {
+  id              String   @id @default(cuid())
+  doctorId        String
+  name            String
+  price           Decimal? @db.Decimal(10, 2)
+  discountPercent Int?
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, status])
+  @@index([doctorId])
+  @@map("doctor_service")
 }
 
 // DoctorSlot is a bookable time window attached to a doctor

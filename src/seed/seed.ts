@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { createAuth } from '../auth/auth.js';
+import { EmailService } from '../common/email/email.service.js';
 
 const logger = new Logger('SeedScript');
 
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
   });
   const auth = createAuth(
     prisma as unknown as Parameters<typeof createAuth>[0],
+    new EmailService(),
   );
 
   try {
