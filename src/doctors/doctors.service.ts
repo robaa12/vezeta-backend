@@ -18,8 +18,21 @@ export interface PublicDoctorRecord {
   updatedAt: Date;
 }
 
+/**
+ * List-view DTO for the public doctor catalog. Omits `bio` (up to
+ * 2 KB per doctor — 40 KB per page at the default page size of 20) and
+ * `imageUrl` (detail-only). The detail DTO is `PublicDoctorRecord`;
+ * fetch the full record via `GET /api/doctors/:id`.
+ */
+export interface PublicDoctorListItem {
+  id: string;
+  name: string;
+  category: PublicCategoryRef;
+  status: 'ACTIVE' | 'DEACTIVATED';
+}
+
 export interface ListPublicDoctorsResult {
-  doctors: PublicDoctorRecord[];
+  doctors: PublicDoctorListItem[];
   total: number;
   page: number;
   pageSize: number;
@@ -62,13 +75,18 @@ export class DoctorsService {
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: { category: { select: { id: true, name: true } } },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          category: { select: { id: true, name: true } },
+        },
       }),
       this.prisma.doctor.count({ where }),
     ]);
 
     return {
-      doctors: records.map((r) => this.toPublicRecord(r)),
+      doctors: records.map((r) => this.toListItem(r)),
       total,
       page,
       pageSize,
@@ -87,6 +105,23 @@ export class DoctorsService {
       include: { category: { select: { id: true, name: true } } },
     });
     return doctor ? this.toPublicRecord(doctor) : null;
+  }
+
+  private toListItem(d: {
+    id: string;
+    name: string;
+    status: string;
+    category: { id: string; name: string };
+  }): PublicDoctorListItem {
+    return {
+      id: d.id,
+      name: d.name,
+      status: d.status as PublicDoctorListItem['status'],
+      category: {
+        id: d.category.id,
+        name: d.category.name,
+      },
+    };
   }
 
   private toPublicRecord(d: {

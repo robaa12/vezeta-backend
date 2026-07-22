@@ -298,9 +298,23 @@ export class AppointmentsService {
           status: 'PENDING',
           patientNotes: dto.patientNotes ?? null,
         },
-        include: {
+        select: {
+          id: true,
+          userId: true,
+          doctorId: true,
+          status: true,
+          scheduledAt: true,
+          patientNotes: true,
+          cancelledAt: true,
+          cancelledBy: true,
+          createdAt: true,
+          updatedAt: true,
           doctor: {
-            include: { category: { select: { id: true, name: true } } },
+            select: {
+              id: true,
+              name: true,
+              category: { select: { id: true, name: true } },
+            },
           },
         },
       });
@@ -345,9 +359,21 @@ export class AppointmentsService {
         orderBy: { scheduledAt: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: {
+        select: {
+          id: true,
+          status: true,
+          scheduledAt: true,
+          patientNotes: true,
+          cancelledAt: true,
+          cancelledBy: true,
+          createdAt: true,
+          updatedAt: true,
           doctor: {
-            include: { category: { select: { id: true, name: true } } },
+            select: {
+              id: true,
+              name: true,
+              category: { select: { id: true, name: true } },
+            },
           },
         },
       }),
@@ -428,9 +454,21 @@ export class AppointmentsService {
         orderBy: { scheduledAt: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: {
+        select: {
+          id: true,
+          status: true,
+          scheduledAt: true,
+          patientNotes: true,
+          cancelledAt: true,
+          cancelledBy: true,
+          createdAt: true,
+          updatedAt: true,
           doctor: {
-            include: { category: { select: { id: true, name: true } } },
+            select: {
+              id: true,
+              name: true,
+              category: { select: { id: true, name: true } },
+            },
           },
         },
       }),
@@ -447,8 +485,22 @@ export class AppointmentsService {
   async getAdminAppointment(id: string): Promise<AppointmentResponseDto> {
     const appt = await this.prisma.appointment.findUnique({
       where: { id },
-      include: {
-        doctor: { include: { category: { select: { id: true, name: true } } } },
+      select: {
+        id: true,
+        status: true,
+        scheduledAt: true,
+        patientNotes: true,
+        cancelledAt: true,
+        cancelledBy: true,
+        createdAt: true,
+        updatedAt: true,
+        doctor: {
+          select: {
+            id: true,
+            name: true,
+            category: { select: { id: true, name: true } },
+          },
+        },
       },
     });
     if (!appt) {
@@ -483,8 +535,24 @@ export class AppointmentsService {
     }
     const updated = await this.prisma.appointment.findUniqueOrThrow({
       where: { id },
-      include: {
-        doctor: { include: { category: { select: { id: true, name: true } } } },
+      select: {
+        id: true,
+        userId: true,
+        doctorId: true,
+        status: true,
+        scheduledAt: true,
+        patientNotes: true,
+        cancelledAt: true,
+        cancelledBy: true,
+        createdAt: true,
+        updatedAt: true,
+        doctor: {
+          select: {
+            id: true,
+            name: true,
+            category: { select: { id: true, name: true } },
+          },
+        },
       },
     });
     this.emitAppointmentEvent(APPOINTMENT_CONFIRMED, {
@@ -558,8 +626,24 @@ export class AppointmentsService {
     }
     const updated = await this.prisma.appointment.findUniqueOrThrow({
       where: { id },
-      include: {
-        doctor: { include: { category: { select: { id: true, name: true } } } },
+      select: {
+        id: true,
+        userId: true,
+        doctorId: true,
+        status: true,
+        scheduledAt: true,
+        patientNotes: true,
+        cancelledAt: true,
+        cancelledBy: true,
+        createdAt: true,
+        updatedAt: true,
+        doctor: {
+          select: {
+            id: true,
+            name: true,
+            category: { select: { id: true, name: true } },
+          },
+        },
       },
     });
     if (updated.scheduledAt.getTime() > Date.now()) {
@@ -607,7 +691,6 @@ export class AppointmentsService {
     scheduledAt: Date;
     status: string;
     patientNotes: string | null;
-    adminNotes: string | null;
     cancelledAt: Date | null;
     cancelledBy: string | null;
     createdAt: Date;
@@ -636,9 +719,24 @@ export class AppointmentsService {
       //    caller can emit the cancellation event.
       const updated = await tx.appointment.findUniqueOrThrow({
         where: { id: appointmentId },
-        include: {
+        select: {
+          id: true,
+          userId: true,
+          doctorId: true,
+          slotId: true,
+          status: true,
+          scheduledAt: true,
+          patientNotes: true,
+          cancelledAt: true,
+          cancelledBy: true,
+          createdAt: true,
+          updatedAt: true,
           doctor: {
-            include: { category: { select: { id: true, name: true } } },
+            select: {
+              id: true,
+              name: true,
+              category: { select: { id: true, name: true } },
+            },
           },
         },
       });
