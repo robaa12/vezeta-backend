@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      nestjs:
+        patterns:
+          - '@nestjs/*'
+      prisma:
+        patterns:
+          - '@prisma/client'
+          - prisma
+          - '@prisma/adapter-pg'
+      lint:
+        patterns:
+          - eslint
+          - '@eslint/*'
+          - prettier
+          - typescript-eslint
+    ignore:
+      - dependency-name: '@types/*'
+        update-types: ['version-update:semver-patch']
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly

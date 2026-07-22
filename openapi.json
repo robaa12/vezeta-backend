@@ -701,6 +701,143 @@
         ]
       }
     },
+    "/api/admin/users": {
+      "get": {
+        "description": "Paginated list of all users. Filterable by role, isActive status, and search (name/email).",
+        "operationId": "AdminController_listUsers",
+        "parameters": [
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "description": "Filter by role",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user",
+                "admin"
+              ]
+            }
+          },
+          {
+            "name": "isActive",
+            "required": false,
+            "in": "query",
+            "description": "Filter by active status",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by name or email",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page (1-based)",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of users.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "pageSize": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "List users (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/stats": {
+      "get": {
+        "description": "Aggregated counts for users, doctors, categories, appointments, reviews, medical records, and notifications.",
+        "operationId": "AdminController_getStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Dashboard stats.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Dashboard statistics (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/ping": {
       "get": {
         "operationId": "AdminController_ping",
@@ -2744,7 +2881,7 @@
     "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, the browser hits `GET /api/auth/oauth/start?provider=google` (or `facebook`) — a Better Auth standard route — and follows the 302 redirect.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `doctor-services` — per-doctor service catalog (admin)\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
     "version": "0.0.1",
     "contact": {},
-    "x-generated-at": "2026-07-22T17:35:45.274Z"
+    "x-generated-at": "2026-07-22T17:58:15.424Z"
   },
   "tags": [
     {

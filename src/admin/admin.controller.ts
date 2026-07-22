@@ -28,12 +28,14 @@ import {
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import {
   AdminService,
+  type AdminStats,
   type DoctorRecord,
   type UserRecord,
 } from './admin.service.js';
 import { CreateDoctorDto } from './dto/create-doctor.dto.js';
 import { ListDoctorsDto } from './dto/list-doctors.dto.js';
 import { UpdateDoctorDto } from './dto/update-doctor.dto.js';
+import { ListUsersDto } from './dto/list-users.dto.js';
 import { RoleChangeDto } from './dto/role-change.dto.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
@@ -185,6 +187,47 @@ export class AdminController {
     return this.adminService
       .deactivateUser(id, admin.id)
       .then((user) => ({ success: true as const, user }));
+  }
+
+  @Get('users')
+  @ApiOperation({
+    summary: 'List users (admin)',
+    description:
+      'Paginated list of all users. Filterable by role, isActive status, and search (name/email).',
+  })
+  @ApiOkResponse({
+    description: 'Paginated list of users.',
+    schema: {
+      type: 'object',
+      properties: {
+        users: { type: 'array', items: { type: 'object' } },
+        total: { type: 'integer' },
+        page: { type: 'integer' },
+        pageSize: { type: 'integer' },
+      },
+    },
+  })
+  listUsers(@Query() query: ListUsersDto): Promise<{
+    users: UserRecord[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    return this.adminService.listUsers(query);
+  }
+
+  @Get('stats')
+  @ApiOperation({
+    summary: 'Dashboard statistics (admin)',
+    description:
+      'Aggregated counts for users, doctors, categories, appointments, reviews, medical records, and notifications.',
+  })
+  @ApiOkResponse({
+    description: 'Dashboard stats.',
+    schema: { type: 'object' },
+  })
+  getStats(): Promise<AdminStats> {
+    return this.adminService.getStats();
   }
 
   @Get('ping')

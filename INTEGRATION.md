@@ -379,11 +379,12 @@ All routes require the `admin` role **and** an active account. The list below is
 **Doctors:** list/create/get/update/deactivate (soft)/hard-delete
 **Slots:** create/list/get/update/block (soft)/hard-delete
 **Appointments:** list/get + lifecycle transitions: `confirm` (PENDING→CONFIRMED), `cancel` (any→CANCELLED), `complete` (CONFIRMED→COMPLETED, only if `scheduledAt` is in the past)
-**Users:** get/change-role (last-active-admin demotion rejected)/deactivate
+**Users:** list/get/change-role (last-active-admin demotion rejected)/deactivate
 **Categories:** full CRUD + soft-deactivate (see §10.3)
 **Doctor services:** full CRUD + soft-deactivate (see §10.4)
 **Reviews:** list moderation / delete
 **Medical records:** create/update (admin authors on behalf of the treating doctor; patients read via the public read endpoints)
+**Stats:** `GET /api/admin/stats` — aggregated dashboard counts
 **Ping:** `GET /api/admin/ping` — liveness (anonymous, no auth — used by ops)
 
 ---

@@ -10,6 +10,7 @@ import { AuditService } from '../common/audit/audit.service.js';
 import { CreateDoctorDto } from './dto/create-doctor.dto.js';
 import { ListDoctorsDto } from './dto/list-doctors.dto.js';
 import { UpdateDoctorDto } from './dto/update-doctor.dto.js';
+import { ListUsersDto } from './dto/list-users.dto.js';
 
 export interface DoctorCategoryRef {
   id: string;
@@ -264,6 +265,59 @@ export class AdminService {
   }
 
   // ---------------- User management ----------------
+
+  async listUsers(query: ListUsersDto): Promise<{
+    users: UserRecord[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const where: Record<string, unknown> = {};
+    if (query.role) where.role = query.role;
+    if (query.isActive !== undefined) where.isActive = query.isActive;
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { email: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [records, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      users: records.map((r) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        role: r.role as UserRole,
+        isActive: r.isActive,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })),
+      total,
+      page,
+      pageSize,
+    };
+  }
 
   async getUser(id: string): Promise<UserRecord> {
     const user = await this.prisma.user.findUnique({
