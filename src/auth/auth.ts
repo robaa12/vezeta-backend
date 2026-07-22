@@ -6,6 +6,13 @@ import { APIError } from 'better-auth/api';
 import { PrismaClient } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { EmailService } from '../common/email/email.service.js';
+import {
+  MIN_PASSWORD_LENGTH,
+  OTP_LENGTH,
+  OTP_TTL_SECONDS,
+  SESSION_REFRESH_AGE_SECONDS,
+  SESSION_TTL_SECONDS,
+} from '../common/constants.js';
 
 const sendPhoneOTP = (data: {
   phoneNumber: string;
@@ -63,12 +70,12 @@ export const createAuth = (
     emailAndPassword: {
       enabled: true,
       autoSignIn: true,
-      minPasswordLength: 8,
+      minPasswordLength: MIN_PASSWORD_LENGTH,
       revokeSessionsOnPasswordReset: true,
     },
     session: {
-      expiresIn: 60 * 60 * 24 * 7,
-      updateAge: 60 * 60 * 24,
+      expiresIn: SESSION_TTL_SECONDS,
+      updateAge: SESSION_REFRESH_AGE_SECONDS,
       // Disable Better Auth's signed cookie cache. When enabled,
       // request.user (and therefore RolesGuard's role + isActive
       // checks) is served from the HMAC-signed session cookie for
@@ -169,16 +176,16 @@ export const createAuth = (
     },
     plugins: [
       emailOTP({
-        otpLength: 6,
-        expiresIn: 600,
+        otpLength: OTP_LENGTH,
+        expiresIn: OTP_TTL_SECONDS,
         sendVerificationOTP: async (data) => {
           await emailService.sendOtp(data);
         },
         overrideDefaultEmailVerification: true,
       }),
       phoneNumber({
-        otpLength: 6,
-        expiresIn: 600,
+        otpLength: OTP_LENGTH,
+        expiresIn: OTP_TTL_SECONDS,
         sendOTP: sendPhoneOTP,
         sendPasswordResetOTP: sendPhonePasswordResetOTP,
       }),

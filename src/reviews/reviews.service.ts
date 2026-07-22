@@ -14,7 +14,6 @@ import {
 import { CreateReviewDto } from './dto/create-review.dto.js';
 import { ListReviewsDto } from './dto/list-reviews.dto.js';
 import {
-  type DoctorRatingDto,
   type ListReviewsResult,
   type ReviewResponseDto,
 } from './dto/review-response.dto.js';
@@ -189,18 +188,6 @@ export class ReviewsService {
    * null when the doctor has no reviews so the caller can omit the field
    * rather than render a misleading 0.0.
    */
-  async getDoctorRating(doctorId: string): Promise<DoctorRatingDto> {
-    const agg = await this.prisma.review.aggregate({
-      where: { doctorId },
-      _avg: { rating: true },
-      _count: { _all: true },
-    });
-    return {
-      averageRating: agg._avg.rating ?? null,
-      totalReviews: agg._count._all,
-    };
-  }
-
   // =========================================================================
   // Admin — list / delete reviews (moderation surface)
   // =========================================================================
