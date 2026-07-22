@@ -7,6 +7,29 @@ set -e
 
 echo "[entrypoint] starting vezeeta-backend"
 
+# Guard against known-insecure default passwords in production.
+if [ "${NODE_ENV:-development}" = "production" ]; then
+  INSECURE=0
+  if [ "${POSTGRES_PASSWORD:-}" = "postgres" ] || [ "${POSTGRES_PASSWORD:-}" = "change-me-in-production" ]; then
+    echo "[entrypoint] ************** WARNING **************"
+    echo "[entrypoint] POSTGRES_PASSWORD is set to a default/placeholder value."
+    echo "[entrypoint] Set a strong password in production."
+    echo "[entrypoint] ************************************"
+    INSECURE=1
+  fi
+  if [ "${SEED_ADMIN_PASSWORD:-}" = "ChangeMe123!" ]; then
+    echo "[entrypoint] ************** WARNING **************"
+    echo "[entrypoint] SEED_ADMIN_PASSWORD is the documented default."
+    echo "[entrypoint] Change it before running in production."
+    echo "[entrypoint] ************************************"
+    INSECURE=1
+  fi
+  if [ "${INSECURE:-0}" -eq 1 ]; then
+    echo "[entrypoint] sleeping 5s for visibility — override defaults to suppress."
+    sleep 5
+  fi
+fi
+
 if [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
   echo "[entrypoint] applying database migrations..."
   npx prisma migrate deploy

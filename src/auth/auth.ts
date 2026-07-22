@@ -18,9 +18,13 @@ const sendPhoneOTP = (data: {
   phoneNumber: string;
   code: string;
 }): Promise<void> => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[phone-otp] phone=${data.phoneNumber} code=${data.code}`);
+  if (process.env.NODE_ENV === 'production') {
+    console.warn(
+      `[phone-otp] SMS provider not configured — phone OTP would be sent to ${data.phoneNumber} but no provider is wired. Set SMS_PROVIDER_API_KEY and implement sendPhoneOTP in src/auth/auth.ts.`,
+    );
+    return Promise.resolve();
   }
+  console.log(`[phone-otp] phone=${data.phoneNumber} code=${data.code}`);
   return Promise.resolve();
 };
 
@@ -28,11 +32,15 @@ const sendPhonePasswordResetOTP = (data: {
   phoneNumber: string;
   code: string;
 }): Promise<void> => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      `[phone-password-reset] phone=${data.phoneNumber} code=${data.code}`,
+  if (process.env.NODE_ENV === 'production') {
+    console.warn(
+      `[phone-password-reset] SMS provider not configured — reset OTP would be sent to ${data.phoneNumber} but no provider is wired. Set SMS_PROVIDER_API_KEY and implement sendPhonePasswordResetOTP in src/auth/auth.ts.`,
     );
+    return Promise.resolve();
   }
+  console.log(
+    `[phone-password-reset] phone=${data.phoneNumber} code=${data.code}`,
+  );
   return Promise.resolve();
 };
 

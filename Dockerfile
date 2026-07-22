@@ -24,8 +24,8 @@ COPY src ./src
 # Generate Prisma client (needed at build time for the runtime reference)
 RUN npx prisma generate
 
-# Compile TypeScript -> dist/
-RUN npm run build
+# Compile TypeScript -> dist/ (no source maps in production)
+RUN npx nest build --path tsconfig.build.prod.json
 
 # Prune dev dependencies to keep only prod deps for the runner image
 RUN npm prune --omit=dev
