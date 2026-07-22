@@ -99,17 +99,27 @@ POST /api/auth/phone-number/reset-password      { "phoneNumber": "...", "otp": "
 
 In dev, the OTP is logged to the console (`[phone-otp] …`).
 
-### 4.5 Social login (Google / Facebook) — browser flow
+### 4.5 Social login (Google / Facebook)
 
-The cleanest path from a "Continue with Google" button is:
+Two approaches — pick whichever fits your frontend architecture:
 
+**Simple redirect (static/SSR pages):**
 ```
-GET /api/oauth/start?provider=google&callbackURL=/dashboard
+<a href="${BETTER_AUTH_URL}/api/auth/oauth/start?provider=google&callbackURL=${encodeURIComponent('/dashboard')}">
+  Continue with Google
+</a>
 ```
 
-This is a custom route (mounted by `AuthController`) that issues the Better Auth CSRF state cookie and **302-redirects** the browser to Google. The callback lands back on `${BETTER_AUTH_URL}/api/auth/callback/google`, which sets the session cookie and redirects to `callbackURL`.
+This is a Better Auth standard route that issues the CSRF cookie and **302-redirects** the browser to Google. The callback lands on `/api/auth/callback/google`, sets the session cookie, and redirects to `callbackURL`.
 
-For SPAs that need to initiate the flow from JS, you can also call `POST /api/auth/sign-in/social` (the standard Better Auth endpoint) with `{ provider, callbackURL }` and then navigate the browser to the returned `url`.
+**SPA / JS-initiated flow (React, Vue, etc.):**
+```
+POST /api/auth/sign-in/social
+{ "provider": "google", "callbackURL": "/dashboard" }
+→ { "url": "https://accounts.google.com/o/oauth2/..." }
+```
+
+Call this endpoint, then `window.location.href = result.url` to start the OAuth flow in the browser.
 
 ### 4.6 Linking a social account to an existing user
 
@@ -144,11 +154,22 @@ POST /api/auth/sign-out
 
 Clears the session cookie. Safe to call repeatedly (idempotent).
 
-### 4.9 Account management
+### 4.9 Session management
+
+```
+GET /api/auth/sessions
+→ { sessions: [{ id, ipAddress, userAgent, createdAt, ... }] }
+
+DELETE /api/auth/sessions/:id
+→ 204 No Content
+```
+
+### 4.10 Account management
 
 - `POST /api/auth/forget-password` — `{ email }` → sends reset OTP/email
 - `POST /api/auth/reset-password` — `{ token, newPassword }` (token comes from the email link) or `{ phoneNumber, otp, newPassword }` for phone
 - `POST /api/auth/change-password` — `{ currentPassword, newPassword, revokeOtherSessions? }`
+- `POST /api/auth/change-email` — `{ newEmail, callbackURL? }` → sends verification email
 
 ---
 
@@ -258,12 +279,11 @@ When exceeded: `429` with `Retry-After` header. The frontend should back off and
 
 ## 10. Domain reference
 
-### 10.1 `auth` — `/api/me`, `/api/health`, `/api/oauth/start`, `/api/auth/*`
+### 10.1 `auth` — `/api/me`, `/api/health`, `/api/auth/*`
 
 See [section 4](#4-authentication-flow) above for the full flow. The custom routes are:
 - `GET /api/me` — current session user
 - `GET /api/health` — liveness probe
-- `GET /api/oauth/start` — browser-friendly social-OAuth kickoff
 - `POST /api/auth/link-social` — start linking Google/Facebook to current account
 - `DELETE /api/auth/social-accounts/:provider` — unlink
 
@@ -274,9 +294,30 @@ See [section 4](#4-authentication-flow) above for the full flow. The custom rout
 
 Both endpoints are `Cache-Control: public, max-age=…` advisory headers (60s for the list, 300s for the detail). The frontend can use them as a hint for an HTTP cache; the backend does not have an in-process cache.
 
-### 10.3 `categories` — public vocabulary
+### 10.3 `categories` — public vocabulary + admin CRUD
 
+**Public:**
 - `GET /api/categories` — anonymous, ACTIVE categories, sorted A→Z. 5-minute `Cache-Control` hint. Used to populate the search dropdown.
+
+**Admin** (`/api/admin/categories`, role: `admin`):
+- `GET /api/admin/categories?status=&search=&page=&pageSize=` — list all categories, paginated
+- `GET /api/admin/categories/:id` — get a single category
+- `POST /api/admin/categories` — create (`{ name, status? }`)
+- `PATCH /api/admin/categories/:id` — partial update
+- `PATCH /api/admin/categories/:id/deactivate` — soft-deactivate (idempotent)
+- `DELETE /api/admin/categories/:id` — hard delete (204, fails 409 if in use by doctors)
+
+### 10.4 `doctor-services` — per-doctor service catalog (admin)
+
+**Admin** (`/api/admin/doctors/:doctorId/services`, role: `admin`):
+- `GET /api/admin/doctors/:doctorId/services?status=&page=&pageSize=` — list services for a doctor
+- `POST /api/admin/doctors/:doctorId/services` — create (`{ name, price?, discountPercent?, status? }`)
+- `GET /api/admin/doctors/:doctorId/services/:serviceId` — get one service
+- `PATCH /api/admin/doctors/:doctorId/services/:serviceId` — partial update
+- `PATCH /api/admin/doctors/:doctorId/services/:serviceId/deactivate` — soft-deactivate
+- `DELETE /api/admin/doctors/:doctorId/services/:serviceId` — hard delete (204)
+
+Each service has a `finalPrice` (computed: price minus discount). `discountPercent` is only settable when `price` is present.
 
 ### 10.4 `slots` — public slot picker
 
@@ -306,11 +347,29 @@ Appointment status lifecycle: `PENDING` (after booking) → `CONFIRMED` (admin c
 
 Records are written by admins via `POST/PATCH /api/admin/appointments/:id/medical-record` (see admin section).
 
-### 10.8 `notifications` — in-app inbox
+### 10.8 `notifications` — in-app inbox + automated reminders
 
+**User-facing API:**
 - `GET /api/notifications?unreadOnly=&page=&pageSize=` — paginated, newest first. Response includes `unreadCount` for the badge.
 - `PATCH /api/notifications/:id/read` — body: `{ read?: boolean }` (default `true`).
 - `PATCH /api/notifications/read-all` — marks everything read, returns `{ updated: number }`.
+
+**Server-sent (automated) notifications:**
+
+The backend sends these notifications automatically via cron + event listeners. The frontend does not trigger them — it only displays them.
+
+| Trigger | Notification title | `metadata.kind` | Channel |
+|---|---|---|---|
+| Appointment booked | "Appointment request received" | `appointment.created` | EMAIL + IN_APP |
+| Appointment confirmed | "Appointment confirmed" | `appointment.confirmed` | EMAIL + IN_APP |
+| Appointment cancelled | "Appointment cancelled" | `appointment.cancelled` | EMAIL + IN_APP |
+| Appointment completed | "How was your visit?" | `appointment.completed` | EMAIL + IN_APP |
+| Review posted | "Review submitted" | `review.posted` | EMAIL + IN_APP |
+| Medical record added | "Medical record added" | `medical.record.created` | EMAIL + IN_APP |
+| **~24h before appointment** | "Upcoming appointment tomorrow" | `appointment.reminder.24h` | EMAIL + IN_APP |
+| **~1h before appointment** | "Appointment in 1 hour" | `appointment.reminder.1h` | EMAIL + IN_APP |
+
+**Cron schedule:** The 24h and 1h reminder jobs run every 15 minutes and scan CONFIRMED appointments whose `scheduledAt` falls within the respective window. Each appointment receives at most one of each reminder kind — the `metadata.kind` acts as an idempotency key.
 
 ### 10.9 `admin` — `/api/admin/*` (role: `admin`)
 
@@ -320,10 +379,10 @@ All routes require the `admin` role **and** an active account. The list below is
 **Slots:** create/list/get/update/block (soft)/hard-delete
 **Appointments:** list/get + lifecycle transitions: `confirm` (PENDING→CONFIRMED), `cancel` (any→CANCELLED), `complete` (CONFIRMED→COMPLETED, only if `scheduledAt` is in the past)
 **Users:** get/change-role (last-active-admin demotion rejected)/deactivate
-**Categories:** full CRUD + soft-deactivate
+**Categories:** full CRUD + soft-deactivate (see §10.3)
+**Doctor services:** full CRUD + soft-deactivate (see §10.4)
 **Reviews:** list moderation / delete
 **Medical records:** create/update (admin authors on behalf of the treating doctor; patients read via the public read endpoints)
-**Stats:** `GET /api/admin/stats` — aggregated counts for the dashboard
 **Ping:** `GET /api/admin/ping` — liveness (anonymous, no auth — used by ops)
 
 ---
@@ -397,7 +456,7 @@ const { appointment } = await (
 
 ### OAuth login from a "Continue with Google" button
 ```tsx
-<a href={`${API}/api/oauth/start?provider=google&callbackURL=${encodeURIComponent('/dashboard')}`}>
+<a href={`${API}/api/auth/oauth/start?provider=google&callbackURL=${encodeURIComponent('/dashboard')}`}>
   Continue with Google
 </a>
 ```

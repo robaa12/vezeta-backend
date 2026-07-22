@@ -127,47 +127,6 @@
         ]
       }
     },
-    "/api/oauth/start": {
-      "get": {
-        "description": "Issues the Better Auth CSRF state cookie and 302-redirects to the provider authorization endpoint. Use this for plain browser navigation from a \"Continue with Google/Facebook\" button. Note: mounted at /api/oauth/start (not /api/auth/sign-in/social) to avoid the Better Auth middleware wildcard.",
-        "operationId": "AuthController_signInSocialBrowser",
-        "parameters": [
-          {
-            "name": "provider",
-            "required": true,
-            "in": "query",
-            "description": "Social provider to sign in with.",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "google",
-                "facebook"
-              ]
-            }
-          },
-          {
-            "name": "callbackURL",
-            "required": false,
-            "in": "query",
-            "description": "Frontend route to return to after the OAuth flow completes.",
-            "schema": {
-              "maxLength": 2048,
-              "example": "/dashboard",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Start a social OAuth flow (browser-friendly)",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
     "/api/auth/link-social": {
       "post": {
         "description": "Returns a URL the frontend should navigate to in order to start the OAuth flow. The callback will only succeed if the social account email matches the current user email.",
@@ -437,9 +396,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": ""
-          },
           "401": {
             "description": "No active session."
           },
@@ -484,9 +440,6 @@
           }
         },
         "responses": {
-          "200": {
-            "description": ""
-          },
           "401": {
             "description": "No active session."
           },
@@ -563,9 +516,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": ""
-          },
           "401": {
             "description": "No active session."
           },
@@ -605,9 +555,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": ""
-          },
           "401": {
             "description": "No active session."
           },
@@ -654,9 +601,6 @@
           }
         },
         "responses": {
-          "200": {
-            "description": ""
-          },
           "400": {
             "description": "Invalid role value."
           },
@@ -699,9 +643,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": ""
-          },
           "401": {
             "description": "No active session."
           },
@@ -757,63 +698,6 @@
           }
         ],
         "summary": "Admin module liveness probe",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/stats": {
-      "get": {
-        "description": "Aggregated counts: users (by role), doctors (by status), categories (by status), appointments (by status), reviews, medical records, notifications (by status).",
-        "operationId": "AdminController_getStats",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Aggregated counts.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "users": {
-                      "type": "object"
-                    },
-                    "doctors": {
-                      "type": "object"
-                    },
-                    "categories": {
-                      "type": "object"
-                    },
-                    "appointments": {
-                      "type": "object"
-                    },
-                    "reviews": {
-                      "type": "object"
-                    },
-                    "medicalRecords": {
-                      "type": "object"
-                    },
-                    "notifications": {
-                      "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No active session."
-          },
-          "403": {
-            "description": "Requires the admin role."
-          }
-        },
-        "security": [
-          {
-            "vezeta.session_token": []
-          }
-        ],
-        "summary": "Dashboard stats (admin)",
         "tags": [
           "admin"
         ]
@@ -904,7 +788,6 @@
             "in": "query",
             "description": "1-based page number.",
             "schema": {
-              "minimum": 1,
               "default": 1,
               "type": "number"
             }
@@ -915,8 +798,6 @@
             "in": "query",
             "description": "Items per page (1-100).",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
               "default": 20,
               "type": "number"
             }
@@ -1288,7 +1169,6 @@
             "in": "query",
             "description": "1-based page number.",
             "schema": {
-              "minimum": 1,
               "default": 1,
               "type": "number"
             }
@@ -1299,8 +1179,6 @@
             "in": "query",
             "description": "Items per page (1-100).",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
               "default": 20,
               "type": "number"
             }
@@ -1480,7 +1358,6 @@
             "in": "query",
             "description": "1-based page number.",
             "schema": {
-              "minimum": 1,
               "default": 1,
               "type": "number"
             }
@@ -1491,8 +1368,6 @@
             "in": "query",
             "description": "Items per page (1-100).",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
               "default": 20,
               "type": "number"
             }
@@ -1713,7 +1588,6 @@
             "in": "query",
             "description": "1-based page number.",
             "schema": {
-              "minimum": 1,
               "default": 1,
               "type": "number"
             }
@@ -1724,8 +1598,6 @@
             "in": "query",
             "description": "Items per page (1-100).",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
               "default": 20,
               "type": "number"
             }
@@ -2006,6 +1878,331 @@
         ]
       }
     },
+    "/api/admin/doctors/{doctorId}/services": {
+      "get": {
+        "description": "Returns the services attached to a single doctor with optional status filter and pagination. Admin-only.",
+        "operationId": "AdminDoctorServicesController_list",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by service status. Defaults to all statuses.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "DEACTIVATED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of services."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Doctor not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "List a doctor's services (admin)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "AdminDoctorServicesController_create",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDoctorServiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Service created."
+          },
+          "400": {
+            "description": "Validation error (e.g. discount without price, or no fields)."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Doctor not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Create a service for a doctor (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/doctors/{doctorId}/services/{serviceId}": {
+      "get": {
+        "operationId": "AdminDoctorServicesController_getOne",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "path",
+            "description": "Service id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service found."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Service not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Get a single service for a doctor (admin)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminDoctorServicesController_update",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "path",
+            "description": "Service id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDoctorServiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Service updated."
+          },
+          "400": {
+            "description": "No fields to update, or discount/price inconsistency."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Service not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Update a service (partial)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminDoctorServicesController_delete",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "path",
+            "description": "Service id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Service deleted."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Service not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Hard-delete a service",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/doctors/{doctorId}/services/{serviceId}/deactivate": {
+      "patch": {
+        "operationId": "AdminDoctorServicesController_deactivate",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "path",
+            "description": "Service id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service deactivated (idempotent)."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Service not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Soft-deactivate a service",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/appointments/{id}/review": {
       "post": {
         "operationId": "ReviewsController_createReview",
@@ -2081,7 +2278,6 @@
             "in": "query",
             "description": "1-based page number.",
             "schema": {
-              "minimum": 1,
               "default": 1,
               "type": "number"
             }
@@ -2092,8 +2288,6 @@
             "in": "query",
             "description": "Items per page (1-100).",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
               "default": 20,
               "type": "number"
             }
@@ -2203,7 +2397,6 @@
             "in": "query",
             "description": "1-based page number.",
             "schema": {
-              "minimum": 1,
               "default": 1,
               "type": "number"
             }
@@ -2214,8 +2407,6 @@
             "in": "query",
             "description": "Items per page (1-100).",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
               "default": 20,
               "type": "number"
             }
@@ -2473,7 +2664,6 @@
             "in": "query",
             "description": "1-based page number.",
             "schema": {
-              "minimum": 1,
               "default": 1,
               "type": "number"
             }
@@ -2484,8 +2674,6 @@
             "in": "query",
             "description": "Items per page (1-100).",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
               "default": 20,
               "type": "number"
             }
@@ -2516,10 +2704,10 @@
   },
   "info": {
     "title": "Vezeeta Backend API",
-    "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, the browser hits `GET /api/oauth/start?provider=google` (or `facebook`) and follows the 302 redirect.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
+    "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, the browser hits `GET /api/auth/oauth/start?provider=google` (or `facebook`) — a Better Auth standard route — and follows the 302 redirect.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `doctor-services` — per-doctor service catalog (admin)\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
     "version": "0.0.1",
     "contact": {},
-    "x-generated-at": "2026-07-21T19:38:37.497Z"
+    "x-generated-at": "2026-07-22T15:47:47.658Z"
   },
   "tags": [
     {
@@ -2537,6 +2725,10 @@
     {
       "name": "slots",
       "description": "Public slot picker for a doctor."
+    },
+    {
+      "name": "doctor-services",
+      "description": "Per-doctor service catalog (admin CRUD)."
     },
     {
       "name": "appointments",
@@ -2574,19 +2766,19 @@
         "type": "object",
         "properties": {
           "provider": {
+            "type": "string",
+            "description": "Social provider to link to the current account.",
             "enum": [
               "google",
               "facebook"
             ],
-            "type": "string",
-            "description": "Social provider to link to the current account.",
             "example": "google"
           },
           "callbackURL": {
             "type": "string",
-            "maxLength": 2048,
-            "description": "Frontend route to return to after the link completes.",
-            "example": "/profile/settings"
+            "description": "Same-origin frontend route to return to after the link completes. Must be a relative path starting with `/` (no scheme, no host, no `//`).",
+            "example": "/profile/settings",
+            "maxLength": 2048
           }
         },
         "required": [
@@ -2598,28 +2790,25 @@
         "properties": {
           "name": {
             "type": "string",
+            "description": "Doctor's full display name.",
             "minLength": 2,
             "maxLength": 120,
-            "description": "Doctor's full display name.",
             "example": "Dr. Jane Smith"
           },
           "categoryId": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
             "description": "Id of the ACTIVE category this doctor belongs to.",
             "example": "seed_cardiology"
           },
           "bio": {
             "type": "string",
-            "maxLength": 2000,
-            "description": "Short biography / about section."
+            "description": "Short biography / about section.",
+            "maxLength": 2000
           },
           "imageUrl": {
             "type": "string",
+            "description": "Profile photo URL. Must be a valid https:// URL.",
             "maxLength": 2048,
-            "format": "uri",
-            "description": "Profile photo URL.",
             "example": "https://cdn.example.com/jane.jpg"
           }
         },
@@ -2638,9 +2827,8 @@
           },
           "categoryId": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "description": "Id of an ACTIVE category to reassign the doctor to."
+            "description": "Id of an ACTIVE category to reassign the doctor to.",
+            "maxLength": 64
           },
           "bio": {
             "type": "string",
@@ -2648,15 +2836,14 @@
           },
           "imageUrl": {
             "type": "string",
-            "maxLength": 2048,
-            "format": "uri"
+            "maxLength": 2048
           },
           "status": {
+            "type": "string",
             "enum": [
               "ACTIVE",
               "DEACTIVATED"
-            ],
-            "type": "string"
+            ]
           }
         }
       },
@@ -2664,11 +2851,11 @@
         "type": "object",
         "properties": {
           "role": {
+            "type": "string",
             "enum": [
               "user",
               "admin"
-            ],
-            "type": "string"
+            ]
           }
         },
         "required": [
@@ -2700,12 +2887,12 @@
         "type": "object",
         "properties": {
           "status": {
+            "type": "string",
+            "description": "New slot status. BOOKED is NOT settable via this endpoint — booking manages that lifecycle.",
             "enum": [
               "AVAILABLE",
               "BLOCKED"
-            ],
-            "type": "string",
-            "description": "New slot status. BOOKED is NOT settable via this endpoint — booking manages that lifecycle."
+            ]
           }
         }
       },
@@ -2714,15 +2901,14 @@
         "properties": {
           "slotId": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
             "description": "Id of an AVAILABLE slot for an ACTIVE doctor in an ACTIVE category.",
+            "maxLength": 64,
             "example": "slot_abc"
           },
           "patientNotes": {
             "type": "string",
-            "maxLength": 2000,
-            "description": "Patient-supplied context (e.g. reason for visit)."
+            "description": "Patient-supplied context (e.g. reason for visit).",
+            "maxLength": 2000
           }
         },
         "required": [
@@ -2734,18 +2920,18 @@
         "properties": {
           "name": {
             "type": "string",
+            "description": "Category display name. Trimmed of leading/trailing whitespace.",
             "minLength": 1,
             "maxLength": 100,
-            "description": "Category display name. Trimmed of leading/trailing whitespace.",
             "example": "Cardiology"
           },
           "status": {
+            "type": "string",
+            "description": "Category status. Defaults to ACTIVE when omitted.",
             "enum": [
               "ACTIVE",
               "DEACTIVATED"
-            ],
-            "type": "string",
-            "description": "Category status. Defaults to ACTIVE when omitted."
+            ]
           }
         },
         "required": [
@@ -2757,17 +2943,85 @@
         "properties": {
           "name": {
             "type": "string",
+            "description": "New category name. Trimmed of leading/trailing whitespace.",
             "minLength": 1,
-            "maxLength": 100,
-            "description": "New category name. Trimmed of leading/trailing whitespace."
+            "maxLength": 100
           },
           "status": {
+            "type": "string",
+            "description": "New category status.",
             "enum": [
               "ACTIVE",
               "DEACTIVATED"
-            ],
+            ]
+          }
+        }
+      },
+      "CreateDoctorServiceDto": {
+        "type": "object",
+        "properties": {
+          "name": {
             "type": "string",
-            "description": "New category status."
+            "description": "Service display name (free-text, e.g. \"Consultation\", \"ECG\"). Trimmed of leading/trailing whitespace.",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "Consultation"
+          },
+          "price": {
+            "type": "number",
+            "description": "Service price (no currency). Omit for free / price-on-request services. Must be non-negative and at most 99999999.99.",
+            "example": 150,
+            "minimum": 0,
+            "maximum": 99999999.99
+          },
+          "discountPercent": {
+            "type": "number",
+            "description": "Discount as a percentage 0-100. Only meaningful when a price is also set; rejected with 400 if supplied without a price.",
+            "example": 10,
+            "minimum": 0,
+            "maximum": 100
+          },
+          "status": {
+            "type": "string",
+            "description": "Lifecycle status. Defaults to ACTIVE when omitted.",
+            "enum": [
+              "ACTIVE",
+              "DEACTIVATED"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateDoctorServiceDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "New service display name. Trimmed of leading/trailing whitespace.",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "price": {
+            "type": "number",
+            "description": "New service price (no currency). Omit to clear; supply a number to set. Must be non-negative and at most 99999999.99.",
+            "minimum": 0,
+            "maximum": 99999999.99
+          },
+          "discountPercent": {
+            "type": "number",
+            "description": "New discount as a percentage 0-100. Omit to clear; supply a number to set. Requires a price to be set either in this PATCH body or already on the service (enforced in the service layer).",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "status": {
+            "type": "string",
+            "description": "New lifecycle status.",
+            "enum": [
+              "ACTIVE",
+              "DEACTIVATED"
+            ]
           }
         }
       },
@@ -2776,15 +3030,15 @@
         "properties": {
           "rating": {
             "type": "number",
+            "description": "Rating from 1 to 5 (inclusive).",
             "minimum": 1,
             "maximum": 5,
-            "description": "Rating from 1 to 5 (inclusive).",
             "example": 5
           },
           "comment": {
             "type": "string",
-            "maxLength": 2000,
-            "description": "Optional comment (max 2000 chars)."
+            "description": "Optional comment (max 2000 chars).",
+            "maxLength": 2000
           }
         },
         "required": [
@@ -2806,16 +3060,14 @@
         "properties": {
           "notes": {
             "type": "string",
-            "maxLength": 10000,
-            "description": "Free-text clinical notes (max 10 000 chars)."
+            "description": "Free-text clinical notes (max 10 000 chars).",
+            "maxLength": 10000
           },
           "attachmentUrls": {
-            "maxItems": 25,
-            "description": "Public URLs to attachments (e.g. lab results, prescriptions). Max 25 URLs.",
+            "description": "Public URLs to attachments (e.g. lab results, prescriptions). Must be valid https:// URLs. Max 25.",
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uri"
+              "type": "string"
             }
           }
         }
@@ -2825,16 +3077,14 @@
         "properties": {
           "notes": {
             "type": "string",
-            "maxLength": 10000,
-            "description": "Updated clinical notes."
+            "description": "Updated clinical notes.",
+            "maxLength": 10000
           },
           "attachmentUrls": {
-            "maxItems": 25,
-            "description": "Replacement attachment URL list (max 25).",
+            "description": "Replacement attachment URL list (max 25). Must be valid https:// URLs.",
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uri"
+              "type": "string"
             }
           }
         }

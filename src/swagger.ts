@@ -20,7 +20,7 @@ export function buildSwaggerConfig(): Omit<
         'After `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.',
         'The frontend must send the cookie on every subsequent request (use `credentials: "include"` in fetch / `withCredentials: true` in axios).',
         '',
-        'For the social OAuth flow, the browser hits `GET /api/oauth/start?provider=google` (or `facebook`) and follows the 302 redirect.',
+        'For the social OAuth flow, the browser hits `GET /api/auth/oauth/start?provider=google` (or `facebook`) — a Better Auth standard route — and follows the 302 redirect.',
         '',
         'Use the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.',
         '',
@@ -30,6 +30,7 @@ export function buildSwaggerConfig(): Omit<
         '- `doctors` — public doctor catalog',
         '- `categories` — public category dropdown',
         '- `slots` — public slot picker for a doctor',
+        '- `doctor-services` — per-doctor service catalog (admin)',
         '- `appointments` — patient booking flow',
         '- `reviews` — patient reviews + public doctor rating',
         '- `medical-records` — patient-facing read of their records',
@@ -49,6 +50,7 @@ export function buildSwaggerConfig(): Omit<
     .addTag('doctors', 'Public doctor catalog (browse, search, profile).')
     .addTag('categories', 'Public category vocabulary.')
     .addTag('slots', 'Public slot picker for a doctor.')
+    .addTag('doctor-services', 'Per-doctor service catalog (admin CRUD).')
     .addTag('appointments', 'Patient booking flow (book, list, cancel).')
     .addTag('reviews', 'Patient reviews and public doctor rating.')
     .addTag('medical-records', 'Patient read of their own medical records.')
