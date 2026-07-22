@@ -27,21 +27,6 @@ export class AuthService {
     return { ...user, linkedSocialProviders };
   }
 
-  async deactivateUser(
-    userId: string,
-  ): Promise<{ id: string; isActive: boolean }> {
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { isActive: false },
-      select: { id: true, isActive: true },
-    });
-    if (!updated) {
-      throw new NotFoundException('User not found');
-    }
-    await this.prisma.session.deleteMany({ where: { userId } });
-    return updated;
-  }
-
   async countRemainingSignInMethods(userId: string): Promise<number> {
     const accounts = await this.prisma.account.findMany({
       where: { userId },

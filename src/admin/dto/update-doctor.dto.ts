@@ -36,7 +36,10 @@ export class UpdateDoctorDto {
   @IsOptional()
   @IsString()
   @MaxLength(2048)
-  @IsUrl({ require_tld: false }, { message: 'imageUrl must be a valid URL' })
+  @IsUrl(
+    { protocols: ['https'], require_protocol: true, require_tld: true },
+    { message: 'imageUrl must be a valid https:// URL' },
+  )
   imageUrl?: string;
 
   @ApiPropertyOptional({ enum: ['ACTIVE', 'DEACTIVATED'] })

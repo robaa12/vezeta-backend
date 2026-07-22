@@ -29,6 +29,7 @@ import {
   type ListSlotsResult,
   type SlotResponseDto,
 } from './dto/slot-response.dto.js';
+import { APPOINTMENT_CANCEL_CUTOFF_HOURS } from '../common/constants.js';
 
 @Injectable()
 export class AppointmentsService {
@@ -410,10 +411,9 @@ export class AppointmentsService {
     }
     const hoursUntil =
       (existing.scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60);
-    if (hoursUntil < 24) {
+    if (hoursUntil < APPOINTMENT_CANCEL_CUTOFF_HOURS) {
       throw new ForbiddenException({
-        message:
-          'Cannot cancel within 24 hours of the appointment; please contact support',
+        message: `Cannot cancel within ${APPOINTMENT_CANCEL_CUTOFF_HOURS} hours of the appointment; please contact support`,
         error: 'too_late_to_cancel',
       });
     }

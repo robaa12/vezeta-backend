@@ -32,13 +32,16 @@ export class CreateDoctorDto {
   bio?: string;
 
   @ApiPropertyOptional({
-    description: 'Profile photo URL.',
+    description: 'Profile photo URL. Must be a valid https:// URL.',
     maxLength: 2048,
     example: 'https://cdn.example.com/jane.jpg',
   })
   @IsOptional()
   @IsString()
   @MaxLength(2048)
-  @IsUrl({ require_tld: false }, { message: 'imageUrl must be a valid URL' })
+  @IsUrl(
+    { protocols: ['https'], require_protocol: true, require_tld: true },
+    { message: 'imageUrl must be a valid https:// URL' },
+  )
   imageUrl?: string;
 }
