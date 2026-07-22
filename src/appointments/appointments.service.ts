@@ -4,8 +4,18 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service.js';
+import {
+  APPOINTMENT_CANCELLED,
+  APPOINTMENT_COMPLETED,
+  APPOINTMENT_CONFIRMED,
+  APPOINTMENT_CREATED,
+  type AppointmentCancelledPayload,
+  type AppointmentEventPayload,
+} from '../common/events/domain-events.js';
 import { CreateSlotDto } from './dto/create-slot.dto.js';
 import { UpdateSlotDto } from './dto/update-slot.dto.js';
 import { BookAppointmentDto } from './dto/book-appointment.dto.js';
@@ -22,7 +32,10 @@ import {
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly emitter?: EventEmitter2,
+  ) {}
 
   // =========================================================================
   // Public — slots
@@ -293,7 +306,29 @@ export class AppointmentsService {
       });
     });
 
+    this.emitAppointmentEvent(APPOINTMENT_CREATED, {
+      appointmentId: appointment.id,
+      userId: appointment.userId,
+      doctorId: appointment.doctorId,
+      doctorName: appointment.doctor.name,
+      categoryName: appointment.doctor.category.name,
+      scheduledAt: appointment.scheduledAt,
+      status: appointment.status,
+    });
+
     return { appointment: this.toAppointmentResponse(appointment) };
+  }
+
+  private emitAppointmentEvent(
+    event: string,
+    payload: AppointmentEventPayload | AppointmentCancelledPayload,
+  ): void {
+    if (!this.emitter) return;
+    try {
+      this.emitter.emit(event, payload);
+    } catch {
+      // Side-effect dispatch must never break the primary operation.
+    }
   }
 
   async listMyAppointments(
@@ -357,6 +392,16 @@ export class AppointmentsService {
       });
     }
     const updated = await this.cancelAppointmentTx(appointmentId, 'USER');
+    this.emitAppointmentEvent(APPOINTMENT_CANCELLED, {
+      appointmentId: updated.id,
+      userId: updated.userId,
+      doctorId: updated.doctorId,
+      doctorName: updated.doctor.name,
+      categoryName: updated.doctor.category.name,
+      scheduledAt: updated.scheduledAt,
+      status: updated.status,
+      cancelledBy: 'USER',
+    });
     return { appointment: this.toAppointmentResponse(updated) };
   }
 
@@ -415,24 +460,41 @@ export class AppointmentsService {
   async confirmAppointment(
     id: string,
   ): Promise<{ appointment: AppointmentResponseDto }> {
-    const existing = await this.prisma.appointment.findUnique({
-      where: { id },
+    // Atomic state guard: updateMany with the precondition on `status`
+    // is the source of truth for the transition. A separate findUnique
+    // + update is racy — two concurrent admins would both pass the
+    // check and double-emit CONFIRMED events.
+    const result = await this.prisma.appointment.updateMany({
+      where: { id, status: 'PENDING' },
+      data: { status: 'CONFIRMED' },
     });
-    if (!existing) {
-      throw new NotFoundException('Appointment not found');
-    }
-    if (existing.status !== 'PENDING') {
+    if (result.count === 0) {
+      const existing = await this.prisma.appointment.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      if (!existing) {
+        throw new NotFoundException('Appointment not found');
+      }
       throw new ConflictException({
         message: 'Only PENDING appointments can be confirmed',
         error: 'invalid_state_transition',
       });
     }
-    const updated = await this.prisma.appointment.update({
+    const updated = await this.prisma.appointment.findUniqueOrThrow({
       where: { id },
-      data: { status: 'CONFIRMED' },
       include: {
         doctor: { include: { category: { select: { id: true, name: true } } } },
       },
+    });
+    this.emitAppointmentEvent(APPOINTMENT_CONFIRMED, {
+      appointmentId: updated.id,
+      userId: updated.userId,
+      doctorId: updated.doctorId,
+      doctorName: updated.doctor.name,
+      categoryName: updated.doctor.category.name,
+      scheduledAt: updated.scheduledAt,
+      status: updated.status,
     });
     return { appointment: this.toAppointmentResponse(updated) };
   }
@@ -440,8 +502,12 @@ export class AppointmentsService {
   async cancelAppointment(
     id: string,
   ): Promise<{ appointment: AppointmentResponseDto }> {
+    // Use the atomic cancel helper; the precondition lives in
+    // cancelAppointmentTx. We pre-flight the existence check here so a
+    // missing id returns 404 (not 409 from the conditional update).
     const existing = await this.prisma.appointment.findUnique({
       where: { id },
+      select: { id: true, status: true },
     });
     if (!existing) {
       throw new NotFoundException('Appointment not found');
@@ -453,33 +519,66 @@ export class AppointmentsService {
       });
     }
     const updated = await this.cancelAppointmentTx(id, 'ADMIN');
+    this.emitAppointmentEvent(APPOINTMENT_CANCELLED, {
+      appointmentId: updated.id,
+      userId: updated.userId,
+      doctorId: updated.doctorId,
+      doctorName: updated.doctor.name,
+      categoryName: updated.doctor.category.name,
+      scheduledAt: updated.scheduledAt,
+      status: updated.status,
+      cancelledBy: 'ADMIN',
+    });
     return { appointment: this.toAppointmentResponse(updated) };
   }
 
   async completeAppointment(
     id: string,
   ): Promise<{ appointment: AppointmentResponseDto }> {
-    const existing = await this.prisma.appointment.findUnique({
-      where: { id },
+    // Atomic state guard. The "scheduledAt in the past" check is done
+    // after the conditional updateMany because the comparison is
+    // wall-clock-based and a stale pre-read is harmless — if the
+    // update succeeds, scheduledAt was already in the past.
+    const result = await this.prisma.appointment.updateMany({
+      where: { id, status: 'CONFIRMED' },
+      data: { status: 'COMPLETED' },
     });
-    if (!existing) {
-      throw new NotFoundException('Appointment not found');
-    }
-    if (existing.status !== 'CONFIRMED') {
+    if (result.count === 0) {
+      const existing = await this.prisma.appointment.findUnique({
+        where: { id },
+        select: { id: true, status: true, scheduledAt: true },
+      });
+      if (!existing) {
+        throw new NotFoundException('Appointment not found');
+      }
       throw new ConflictException({
         message: 'Only CONFIRMED appointments can be completed',
         error: 'invalid_state_transition',
       });
     }
-    if (existing.scheduledAt.getTime() > Date.now()) {
-      throw new BadRequestException('Cannot complete a future appointment');
-    }
-    const updated = await this.prisma.appointment.update({
+    const updated = await this.prisma.appointment.findUniqueOrThrow({
       where: { id },
-      data: { status: 'COMPLETED' },
       include: {
         doctor: { include: { category: { select: { id: true, name: true } } } },
       },
+    });
+    if (updated.scheduledAt.getTime() > Date.now()) {
+      // Undo the transition if scheduledAt is in the future. This can
+      // only happen in a tiny race between the read and the wall clock.
+      await this.prisma.appointment.update({
+        where: { id },
+        data: { status: 'CONFIRMED' },
+      });
+      throw new BadRequestException('Cannot complete a future appointment');
+    }
+    this.emitAppointmentEvent(APPOINTMENT_COMPLETED, {
+      appointmentId: updated.id,
+      userId: updated.userId,
+      doctorId: updated.doctorId,
+      doctorName: updated.doctor.name,
+      categoryName: updated.doctor.category.name,
+      scheduledAt: updated.scheduledAt,
+      status: updated.status,
     });
     return { appointment: this.toAppointmentResponse(updated) };
   }
@@ -492,6 +591,10 @@ export class AppointmentsService {
    * Internal: atomic cancel + slot release. Used by both patient
    * self-cancel and admin cancel. The 24h cutoff is enforced by the
    * caller (cancelMyAppointment), not here.
+   *
+   * The slot release is conditional on `status = 'BOOKED'` so an admin
+   * who blocked the slot between booking and cancellation cannot have
+   * the BLOCKED status silently overwritten to AVAILABLE.
    */
   private async cancelAppointmentTx(
     appointmentId: string,
@@ -512,21 +615,38 @@ export class AppointmentsService {
     doctor: PublicDoctorRef;
   }> {
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.appointment.update({
-        where: { id: appointmentId },
+      // 1. Atomic cancel via conditional updateMany (PENDING/CONFIRMED
+      //    → CANCELLED). Two concurrent cancels both pass; the second
+      //    sees count === 0 and the caller can map to 409 if needed.
+      const result = await tx.appointment.updateMany({
+        where: { id: appointmentId, status: { in: ['PENDING', 'CONFIRMED'] } },
         data: {
           status: 'CANCELLED',
           cancelledAt: new Date(),
           cancelledBy,
         },
+      });
+      if (result.count === 0) {
+        throw new ConflictException({
+          message: 'Appointment cannot be cancelled',
+          error: 'invalid_state_transition',
+        });
+      }
+      // 2. Re-read the cancelled row with the doctor include so the
+      //    caller can emit the cancellation event.
+      const updated = await tx.appointment.findUniqueOrThrow({
+        where: { id: appointmentId },
         include: {
           doctor: {
             include: { category: { select: { id: true, name: true } } },
           },
         },
       });
-      await tx.doctorSlot.update({
-        where: { id: updated.slotId },
+      // 3. Conditional slot release. If the slot was concurrently
+      //    blocked by an admin, count === 0 and we leave the slot
+      //    alone (do not overwrite BLOCKED → AVAILABLE).
+      await tx.doctorSlot.updateMany({
+        where: { id: updated.slotId, status: 'BOOKED' },
         data: { status: 'AVAILABLE' },
       });
       return updated;

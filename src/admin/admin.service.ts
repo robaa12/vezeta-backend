@@ -183,9 +183,25 @@ export class AdminService {
     if (!existing) {
       throw new NotFoundException('Doctor not found');
     }
-    // v1: no appointments table exists, so hard-delete is always allowed.
-    // When a future appointments feature lands, this check should be
-    // expanded to reject deletion when the doctor has historical bookings.
+    // Reject hard-delete when the doctor has any historical bookings,
+    // reviews, or medical records. Hard-deleting a doctor with
+    // clinical history would cascade-delete those records (the FK is
+    // ON DELETE CASCADE) — losing audit trail / patient history. The
+    // admin should DEACTIVATE the doctor instead. See review module
+    // spec (`specs/004-doctor-search`) and the medical-records
+    // constitution principle.
+    const [appointments, reviews, medicalRecords] = await Promise.all([
+      this.prisma.appointment.count({ where: { doctorId: id } }),
+      this.prisma.review.count({ where: { doctorId: id } }),
+      this.prisma.medicalRecord.count({ where: { doctorId: id } }),
+    ]);
+    if (appointments > 0 || reviews > 0 || medicalRecords > 0) {
+      throw new ConflictException({
+        message:
+          'Cannot hard-delete a doctor with historical bookings, reviews, or medical records; deactivate instead',
+        error: 'doctor_has_history',
+      });
+    }
     await this.prisma.doctor.delete({ where: { id } });
   }
 
@@ -221,7 +237,10 @@ export class AdminService {
   async changeUserRole(
     userId: string,
     newRole: UserRole,
-    adminId: string,
+    // The acting admin is accepted here for future audit logging; the
+    // current implementation does not need it.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _adminId: string,
   ): Promise<UserRecord> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -247,7 +266,7 @@ export class AdminService {
         where: {
           role: 'admin',
           isActive: true,
-          NOT: { id: adminId === userId ? userId : userId },
+          NOT: { id: userId },
         },
       });
       if (remainingActiveAdmins === 0) {
@@ -287,17 +306,124 @@ export class AdminService {
   ): Promise<{ id: string; isActive: boolean; name: string; email: string }> {
     const existing = await this.prisma.user.findUnique({
       where: { id: userId },
+      select: { id: true, role: true, isActive: true },
     });
     if (!existing) {
       throw new NotFoundException('User not found');
     }
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { isActive: false },
-      select: { id: true, isActive: true, name: true, email: true },
+    // Last-admin guard: only applies when deactivating an active admin.
+    // Mirrors the same guard in changeUserRole so the system can never
+    // reach a state with zero active admins.
+    if (existing.role === 'admin' && existing.isActive) {
+      const remainingActiveAdmins = await this.prisma.user.count({
+        where: {
+          role: 'admin',
+          isActive: true,
+          NOT: { id: userId },
+        },
+      });
+      if (remainingActiveAdmins === 0) {
+        throw new ConflictException({
+          message: 'Cannot deactivate the last active admin',
+          error: 'last_admin',
+        });
+      }
+    }
+    // Atomic: update + invalidate all sessions in one transaction so a
+    // race with a concurrent role change / re-activation cannot leave
+    // the user flagged inactive but with live sessions.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({
+        where: { id: userId },
+        data: { isActive: false },
+        select: { id: true, isActive: true, name: true, email: true },
+      });
+      await tx.session.deleteMany({ where: { userId } });
+      return u;
     });
-    await this.prisma.session.deleteMany({ where: { userId } });
     return updated;
+  }
+
+  // ---------------- Dashboard stats ----------------
+
+  /**
+   * Aggregated counts for the admin dashboard (plan §11). Skips
+   * payment revenue (Module 5 was deferred from this build). All
+   * counters run concurrently in a Promise.all so the endpoint
+   * returns in a bounded time.
+   */
+  async getStats(): Promise<AdminStats> {
+    const [
+      usersTotal,
+      usersActive,
+      usersByRole,
+      doctorsTotal,
+      doctorsByStatus,
+      categoriesTotal,
+      categoriesByStatus,
+      appointmentsByStatus,
+      reviewsTotal,
+      medicalRecordsTotal,
+      notificationsByStatus,
+    ] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: { isActive: true } }),
+      this.prisma.user.groupBy({ by: ['role'], _count: { _all: true } }),
+      this.prisma.doctor.count(),
+      this.prisma.doctor.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.category.count(),
+      this.prisma.category.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+      this.prisma.appointment.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+      this.prisma.review.count(),
+      this.prisma.medicalRecord.count(),
+      this.prisma.notification.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+    ]);
+
+    return {
+      users: {
+        total: usersTotal,
+        active: usersActive,
+        byRole: this.toRecord(usersByRole, 'role'),
+      },
+      doctors: {
+        total: doctorsTotal,
+        byStatus: this.toRecord(doctorsByStatus, 'status'),
+      },
+      categories: {
+        total: categoriesTotal,
+        byStatus: this.toRecord(categoriesByStatus, 'status'),
+      },
+      appointments: {
+        byStatus: this.toRecord(appointmentsByStatus, 'status'),
+      },
+      reviews: { total: reviewsTotal },
+      medicalRecords: { total: medicalRecordsTotal },
+      notifications: {
+        byStatus: this.toRecord(notificationsByStatus, 'status'),
+      },
+    };
+  }
+
+  private toRecord<T extends string>(
+    rows: Array<Record<string, unknown>>,
+    by: T,
+  ): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const row of rows) {
+      const key = row[by] as string | undefined;
+      const count = (row._count as { _all?: number } | undefined)?._all ?? 0;
+      if (key !== undefined) out[key] = count;
+    }
+    return out;
   }
 
   // ---------------- Helpers ----------------
@@ -326,4 +452,14 @@ export class AdminService {
       updatedAt: d.updatedAt,
     };
   }
+}
+
+export interface AdminStats {
+  users: { total: number; active: number; byRole: Record<string, number> };
+  doctors: { total: number; byStatus: Record<string, number> };
+  categories: { total: number; byStatus: Record<string, number> };
+  appointments: { byStatus: Record<string, number> };
+  reviews: { total: number };
+  medicalRecords: { total: number };
+  notifications: { byStatus: Record<string, number> };
 }
