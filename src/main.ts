@@ -1,12 +1,13 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { json } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { validateEnv } from './common/env.js';
+import { StructuredLogger } from './common/logging/structured.logger.js';
 
 // Fail fast on missing or invalid environment variables.
 validateEnv();
@@ -48,9 +49,11 @@ function isSwaggerEnabled(): boolean {
 }
 
 async function bootstrap(): Promise<void> {
+  const structuredLogger = new StructuredLogger();
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
     bufferLogs: false,
+    logger: structuredLogger,
   });
 
   app.use(
@@ -115,9 +118,12 @@ async function bootstrap(): Promise<void> {
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
-  new Logger('Bootstrap').log(`Vezeeta backend listening on :${port}`);
+  structuredLogger.log(`Vezeeta backend listening on :${port}`, 'Bootstrap');
   if (isSwaggerEnabled()) {
-    new Logger('Bootstrap').log(`Swagger UI available at :${port}/api/docs`);
+    structuredLogger.log(
+      `Swagger UI available at :${port}/api/docs`,
+      'Bootstrap',
+    );
   }
 }
 

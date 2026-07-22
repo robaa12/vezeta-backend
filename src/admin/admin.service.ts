@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { UserRole } from '../common/interfaces/session.interface.js';
+import { AuditService } from '../common/audit/audit.service.js';
 import { CreateDoctorDto } from './dto/create-doctor.dto.js';
 import { ListDoctorsDto } from './dto/list-doctors.dto.js';
 import { UpdateDoctorDto } from './dto/update-doctor.dto.js';
@@ -48,11 +49,17 @@ export interface UserRecord {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   // ---------------- Doctor CRUD ----------------
 
-  async createDoctor(dto: CreateDoctorDto): Promise<DoctorRecord> {
+  async createDoctor(
+    dto: CreateDoctorDto,
+    actorId: string,
+  ): Promise<DoctorRecord> {
     const category = await this.prisma.category.findUnique({
       where: { id: dto.categoryId },
       select: { id: true, status: true },
@@ -76,6 +83,15 @@ export class AdminService {
       },
       include: { category: { select: { id: true, name: true } } },
     });
+
+    void this.audit.record({
+      actorId,
+      action: 'doctor.create',
+      entityType: 'doctor',
+      entityId: created.id,
+      details: { name: created.name, categoryId: dto.categoryId },
+    });
+
     return this.toDoctorRecord(created);
   }
 
@@ -130,7 +146,11 @@ export class AdminService {
     return this.toDoctorRecord(doctor);
   }
 
-  async updateDoctor(id: string, dto: UpdateDoctorDto): Promise<DoctorRecord> {
+  async updateDoctor(
+    id: string,
+    dto: UpdateDoctorDto,
+    actorId: string,
+  ): Promise<DoctorRecord> {
     const existing = await this.prisma.doctor.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException('Doctor not found');
@@ -166,10 +186,19 @@ export class AdminService {
       data,
       include: { category: { select: { id: true, name: true } } },
     });
+
+    void this.audit.record({
+      actorId,
+      action: 'doctor.update',
+      entityType: 'doctor',
+      entityId: id,
+      details: { changedFields: Object.keys(data) },
+    });
+
     return this.toDoctorRecord(updated);
   }
 
-  async deactivateDoctor(id: string): Promise<DoctorRecord> {
+  async deactivateDoctor(id: string, actorId: string): Promise<DoctorRecord> {
     const existing = await this.prisma.doctor.findUnique({
       where: { id },
       include: { category: { select: { id: true, name: true } } },
@@ -188,10 +217,18 @@ export class AdminService {
       data: { status: 'DEACTIVATED' },
       include: { category: { select: { id: true, name: true } } },
     });
+
+    void this.audit.record({
+      actorId,
+      action: 'doctor.deactivate',
+      entityType: 'doctor',
+      entityId: id,
+    });
+
     return this.toDoctorRecord(updated);
   }
 
-  async deleteDoctor(id: string): Promise<void> {
+  async deleteDoctor(id: string, actorId: string): Promise<void> {
     const existing = await this.prisma.doctor.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException('Doctor not found');
@@ -216,6 +253,14 @@ export class AdminService {
       });
     }
     await this.prisma.doctor.delete({ where: { id } });
+
+    void this.audit.record({
+      actorId,
+      action: 'doctor.delete',
+      entityType: 'doctor',
+      entityId: id,
+      details: { name: existing.name },
+    });
   }
 
   // ---------------- User management ----------------
@@ -250,10 +295,7 @@ export class AdminService {
   async changeUserRole(
     userId: string,
     newRole: UserRole,
-    // The acting admin is accepted here for future audit logging; the
-    // current implementation does not need it.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _adminId: string,
+    adminId: string,
   ): Promise<UserRecord> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -303,6 +345,15 @@ export class AdminService {
         updatedAt: true,
       },
     });
+
+    void this.audit.record({
+      actorId: adminId,
+      action: 'user.role.change',
+      entityType: 'user',
+      entityId: userId,
+      details: { oldRole: currentRole, newRole },
+    });
+
     return {
       id: updated.id,
       name: updated.name,
@@ -316,6 +367,7 @@ export class AdminService {
 
   async deactivateUser(
     userId: string,
+    actorId: string,
   ): Promise<{ id: string; isActive: boolean; name: string; email: string }> {
     const existing = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -354,6 +406,14 @@ export class AdminService {
       await tx.session.deleteMany({ where: { userId } });
       return u;
     });
+
+    void this.audit.record({
+      actorId,
+      action: 'user.deactivate',
+      entityType: 'user',
+      entityId: userId,
+    });
+
     return updated;
   }
 

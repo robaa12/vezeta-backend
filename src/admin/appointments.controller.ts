@@ -36,6 +36,9 @@ import type {
 } from '../appointments/dto/appointment-response.dto.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { AuditService } from '../common/audit/audit.service.js';
+import type { SessionUser } from '../common/interfaces/session.interface.js';
 import type {
   ListSlotsResult,
   SlotResponseDto,
@@ -50,7 +53,10 @@ import type {
 @UseGuards(RolesGuard)
 @Roles('admin')
 export class AdminAppointmentsController {
-  constructor(private readonly appointmentsService: AppointmentsService) {}
+  constructor(
+    private readonly appointmentsService: AppointmentsService,
+    private readonly audit: AuditService,
+  ) {}
 
   // ---------------- Slot CRUD ----------------
 
@@ -66,10 +72,20 @@ export class AdminAppointmentsController {
   createSlot(
     @Param('doctorId') doctorId: string,
     @Body() body: CreateSlotDto,
+    @CurrentUser() admin: SessionUser,
   ): Promise<{ slot: SlotResponseDto }> {
     return this.appointmentsService
       .createSlot(doctorId, body)
-      .then((slot) => ({ slot }));
+      .then((result) => {
+        void this.audit.record({
+          actorId: admin.id,
+          action: 'slot.create',
+          entityType: 'slot',
+          entityId: result.id,
+          details: { doctorId },
+        });
+        return { slot: result };
+      });
   }
 
   @Get('slots')
@@ -97,10 +113,17 @@ export class AdminAppointmentsController {
   updateSlot(
     @Param('id') id: string,
     @Body() body: UpdateSlotDto,
+    @CurrentUser() admin: SessionUser,
   ): Promise<{ slot: SlotResponseDto }> {
-    return this.appointmentsService
-      .updateSlot(id, body)
-      .then((slot) => ({ slot }));
+    return this.appointmentsService.updateSlot(id, body).then((result) => {
+      void this.audit.record({
+        actorId: admin.id,
+        action: 'slot.update',
+        entityType: 'slot',
+        entityId: id,
+      });
+      return { slot: result };
+    });
   }
 
   @Patch('slots/:id/block')
@@ -109,8 +132,19 @@ export class AdminAppointmentsController {
   @ApiOkResponse({ description: 'Slot blocked.' })
   @ApiNotFoundResponse({ description: 'Slot not found.' })
   @ApiConflictResponse({ description: 'Slot is BOOKED.' })
-  blockSlot(@Param('id') id: string): Promise<{ slot: SlotResponseDto }> {
-    return this.appointmentsService.blockSlot(id).then((slot) => ({ slot }));
+  blockSlot(
+    @Param('id') id: string,
+    @CurrentUser() admin: SessionUser,
+  ): Promise<{ slot: SlotResponseDto }> {
+    return this.appointmentsService.blockSlot(id).then((result) => {
+      void this.audit.record({
+        actorId: admin.id,
+        action: 'slot.block',
+        entityType: 'slot',
+        entityId: id,
+      });
+      return { slot: result };
+    });
   }
 
   @Delete('slots/:id')
@@ -123,8 +157,17 @@ export class AdminAppointmentsController {
     description:
       'Slot is BOOKED or BLOCKED — only AVAILABLE slots can be deleted.',
   })
-  async deleteSlot(@Param('id') id: string): Promise<void> {
+  async deleteSlot(
+    @Param('id') id: string,
+    @CurrentUser() admin: SessionUser,
+  ): Promise<void> {
     await this.appointmentsService.deleteSlot(id);
+    void this.audit.record({
+      actorId: admin.id,
+      action: 'slot.delete',
+      entityType: 'slot',
+      entityId: id,
+    });
   }
 
   // ---------------- Appointment lifecycle ----------------
@@ -139,8 +182,17 @@ export class AdminAppointmentsController {
   })
   confirmAppointment(
     @Param('id') id: string,
+    @CurrentUser() admin: SessionUser,
   ): Promise<{ appointment: AppointmentResponseDto }> {
-    return this.appointmentsService.confirmAppointment(id);
+    return this.appointmentsService.confirmAppointment(id).then((result) => {
+      void this.audit.record({
+        actorId: admin.id,
+        action: 'appointment.confirm',
+        entityType: 'appointment',
+        entityId: id,
+      });
+      return result;
+    });
   }
 
   @Patch('appointments/:id/cancel')
@@ -153,8 +205,17 @@ export class AdminAppointmentsController {
   })
   cancelAppointment(
     @Param('id') id: string,
+    @CurrentUser() admin: SessionUser,
   ): Promise<{ appointment: AppointmentResponseDto }> {
-    return this.appointmentsService.cancelAppointment(id);
+    return this.appointmentsService.cancelAppointment(id).then((result) => {
+      void this.audit.record({
+        actorId: admin.id,
+        action: 'appointment.cancel',
+        entityType: 'appointment',
+        entityId: id,
+      });
+      return result;
+    });
   }
 
   @Patch('appointments/:id/complete')
@@ -172,8 +233,17 @@ export class AdminAppointmentsController {
   })
   completeAppointment(
     @Param('id') id: string,
+    @CurrentUser() admin: SessionUser,
   ): Promise<{ appointment: AppointmentResponseDto }> {
-    return this.appointmentsService.completeAppointment(id);
+    return this.appointmentsService.completeAppointment(id).then((result) => {
+      void this.audit.record({
+        actorId: admin.id,
+        action: 'appointment.complete',
+        entityType: 'appointment',
+        entityId: id,
+      });
+      return result;
+    });
   }
 
   // ---------------- Admin appointment listing ----------------

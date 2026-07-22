@@ -32,6 +32,7 @@ model User {
   reviews        Review[]
   medicalRecords MedicalRecord[]
   notifications  Notification[]
+  auditLogs      AuditLog[]
 
   // Speeds up the last-admin guard and admin stats groupBy.
   @@index([role, isActive])
@@ -303,11 +304,20 @@ model Notification {
 
   @@index([userId, createdAt])
   @@index([status])
-  // GIN index on metadata is added in a follow-up migration because
-  // Prisma's schema language does not yet support functional / GIN
-  // indexes natively. The reminder cron uses
-  // `metadata: { path: ['kind'], equals: 'appointment.reminder' }`
-  // and benefits from `CREATE INDEX notification_metadata_gin
-  // ON notification USING gin (metadata jsonb_path_ops);`.
   @@map("notification")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_log")
 }

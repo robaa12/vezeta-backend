@@ -86,8 +86,11 @@ export class AdminController {
   @ApiBadRequestResponse({ description: 'Validation error.' })
   createDoctor(
     @Body() body: CreateDoctorDto,
+    @CurrentUser() admin: SessionUser,
   ): Promise<{ doctor: DoctorRecord }> {
-    return this.adminService.createDoctor(body).then((doctor) => ({ doctor }));
+    return this.adminService
+      .createDoctor(body, admin.id)
+      .then((doctor) => ({ doctor }));
   }
 
   @Get('doctors/:id')
@@ -106,9 +109,10 @@ export class AdminController {
   updateDoctor(
     @Param('id') id: string,
     @Body() body: UpdateDoctorDto,
+    @CurrentUser() admin: SessionUser,
   ): Promise<{ doctor: DoctorRecord }> {
     return this.adminService
-      .updateDoctor(id, body)
+      .updateDoctor(id, body, admin.id)
       .then((doctor) => ({ doctor }));
   }
 
@@ -117,9 +121,12 @@ export class AdminController {
   @ApiParam({ name: 'id', description: 'Doctor id' })
   @ApiNotFoundResponse({ description: 'Doctor not found.' })
   @ApiConflictResponse({ description: 'Doctor is already deactivated.' })
-  deactivateDoctor(@Param('id') id: string): Promise<{ doctor: DoctorRecord }> {
+  deactivateDoctor(
+    @Param('id') id: string,
+    @CurrentUser() admin: SessionUser,
+  ): Promise<{ doctor: DoctorRecord }> {
     return this.adminService
-      .deactivateDoctor(id)
+      .deactivateDoctor(id, admin.id)
       .then((doctor) => ({ doctor }));
   }
 
@@ -129,8 +136,11 @@ export class AdminController {
   @ApiParam({ name: 'id', description: 'Doctor id' })
   @ApiNoContentResponse({ description: 'Doctor deleted.' })
   @ApiNotFoundResponse({ description: 'Doctor not found.' })
-  async deleteDoctor(@Param('id') id: string): Promise<void> {
-    await this.adminService.deleteDoctor(id);
+  async deleteDoctor(
+    @Param('id') id: string,
+    @CurrentUser() admin: SessionUser,
+  ): Promise<void> {
+    await this.adminService.deleteDoctor(id, admin.id);
   }
 
   // ---------------- User management ----------------
@@ -165,12 +175,15 @@ export class AdminController {
   @ApiOperation({ summary: 'Deactivate a user account' })
   @ApiParam({ name: 'id', description: 'User id' })
   @ApiNotFoundResponse({ description: 'User not found.' })
-  deactivateUser(@Param('id') id: string): Promise<{
+  deactivateUser(
+    @Param('id') id: string,
+    @CurrentUser() admin: SessionUser,
+  ): Promise<{
     success: true;
     user: { id: string; isActive: boolean; name: string; email: string };
   }> {
     return this.adminService
-      .deactivateUser(id)
+      .deactivateUser(id, admin.id)
       .then((user) => ({ success: true as const, user }));
   }
 

@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AuditService } from '../common/audit/audit.service.js';
 import { AdminService } from './admin.service.js';
+
+const mockAudit = () => ({ record: jest.fn() });
 
 const mockPrisma = () => {
   return {
@@ -46,7 +49,11 @@ describe('AdminService — changeUserRole', () => {
   beforeEach(async () => {
     prisma = mockPrisma();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        AdminService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: mockAudit() },
+      ],
     }).compile();
     service = module.get(AdminService);
   });
@@ -184,14 +191,18 @@ describe('AdminService — deactivateUser last-admin guard', () => {
       async (fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock),
     );
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        AdminService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: mockAudit() },
+      ],
     }).compile();
     service = module.get(AdminService);
   });
 
   it('throws NotFound when the user does not exist', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(null);
-    await expect(service.deactivateUser('u1')).rejects.toThrow(
+    await expect(service.deactivateUser('u1', 'admin1')).rejects.toThrow(
       NotFoundException,
     );
   });
@@ -203,7 +214,7 @@ describe('AdminService — deactivateUser last-admin guard', () => {
       isActive: true,
     });
     prisma.user.count.mockResolvedValueOnce(0);
-    await expect(service.deactivateUser('u1')).rejects.toThrow(
+    await expect(service.deactivateUser('u1', 'admin1')).rejects.toThrow(
       ConflictException,
     );
     expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -225,7 +236,7 @@ describe('AdminService — deactivateUser last-admin guard', () => {
     (txMock['session']['deleteMany'] as jest.Mock).mockResolvedValueOnce({
       count: 2,
     });
-    const result = await service.deactivateUser('u1');
+    const result = await service.deactivateUser('u1', 'admin1');
     expect(result.isActive).toBe(false);
     expect(txMock['session']['deleteMany']).toHaveBeenCalledWith({
       where: { userId: 'u1' },
@@ -247,9 +258,11 @@ describe('AdminService — deactivateUser last-admin guard', () => {
     (txMock['session']['deleteMany'] as jest.Mock).mockResolvedValueOnce({
       count: 0,
     });
-    await expect(service.deactivateUser('u1')).resolves.toMatchObject({
-      isActive: false,
-    });
+    await expect(service.deactivateUser('u1', 'admin1')).resolves.toMatchObject(
+      {
+        isActive: false,
+      },
+    );
     expect(prisma.user.count).not.toHaveBeenCalled();
   });
 
@@ -268,9 +281,11 @@ describe('AdminService — deactivateUser last-admin guard', () => {
     (txMock['session']['deleteMany'] as jest.Mock).mockResolvedValueOnce({
       count: 0,
     });
-    await expect(service.deactivateUser('u1')).resolves.toMatchObject({
-      isActive: false,
-    });
+    await expect(service.deactivateUser('u1', 'admin1')).resolves.toMatchObject(
+      {
+        isActive: false,
+      },
+    );
     expect(prisma.user.count).not.toHaveBeenCalled();
   });
 });
@@ -282,7 +297,11 @@ describe('AdminService — Doctor CRUD smoke', () => {
   beforeEach(async () => {
     prisma = mockPrisma();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        AdminService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: mockAudit() },
+      ],
     }).compile();
     service = module.get(AdminService);
   });
@@ -303,10 +322,13 @@ describe('AdminService — Doctor CRUD smoke', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    const doctor = await service.createDoctor({
-      name: 'Dr. Jane',
-      categoryId: 'cat1',
-    });
+    const doctor = await service.createDoctor(
+      {
+        name: 'Dr. Jane',
+        categoryId: 'cat1',
+      },
+      'admin1',
+    );
     expect(doctor.status).toBe('ACTIVE');
     expect(doctor.name).toBe('Dr. Jane');
     expect(doctor.category).toEqual({ id: 'cat1', name: 'Cardiology' });
@@ -331,7 +353,7 @@ describe('AdminService — Doctor CRUD smoke', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    await expect(service.deactivateDoctor('d1')).rejects.toThrow(
+    await expect(service.deactivateDoctor('d1', 'admin1')).rejects.toThrow(
       ConflictException,
     );
   });
@@ -352,7 +374,7 @@ describe('AdminService — Doctor CRUD smoke', () => {
     prisma.review.count.mockResolvedValueOnce(0);
     prisma.medicalRecord.count.mockResolvedValueOnce(0);
     prisma.doctor.delete.mockResolvedValueOnce({ id: 'd1' });
-    await expect(service.deleteDoctor('d1')).resolves.toBeUndefined();
+    await expect(service.deleteDoctor('d1', 'admin1')).resolves.toBeUndefined();
   });
 
   it('deleteDoctor rejects with 409 when the doctor has appointments', async () => {
@@ -369,7 +391,9 @@ describe('AdminService — Doctor CRUD smoke', () => {
     prisma.appointment.count.mockResolvedValueOnce(3);
     prisma.review.count.mockResolvedValueOnce(0);
     prisma.medicalRecord.count.mockResolvedValueOnce(0);
-    await expect(service.deleteDoctor('d1')).rejects.toThrow(ConflictException);
+    await expect(service.deleteDoctor('d1', 'admin1')).rejects.toThrow(
+      ConflictException,
+    );
     expect(prisma.doctor.delete).not.toHaveBeenCalled();
   });
 
@@ -387,7 +411,9 @@ describe('AdminService — Doctor CRUD smoke', () => {
     prisma.appointment.count.mockResolvedValueOnce(0);
     prisma.review.count.mockResolvedValueOnce(2);
     prisma.medicalRecord.count.mockResolvedValueOnce(0);
-    await expect(service.deleteDoctor('d1')).rejects.toThrow(ConflictException);
+    await expect(service.deleteDoctor('d1', 'admin1')).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   it('deleteDoctor rejects with 409 when the doctor has medical records', async () => {
@@ -404,7 +430,9 @@ describe('AdminService — Doctor CRUD smoke', () => {
     prisma.appointment.count.mockResolvedValueOnce(0);
     prisma.review.count.mockResolvedValueOnce(0);
     prisma.medicalRecord.count.mockResolvedValueOnce(1);
-    await expect(service.deleteDoctor('d1')).rejects.toThrow(ConflictException);
+    await expect(service.deleteDoctor('d1', 'admin1')).rejects.toThrow(
+      ConflictException,
+    );
   });
 });
 
@@ -415,7 +443,11 @@ describe('AdminService — getStats', () => {
   beforeEach(async () => {
     prisma = mockPrisma();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        AdminService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: mockAudit() },
+      ],
     }).compile();
     service = module.get(AdminService);
   });
@@ -476,7 +508,11 @@ describe('AdminService — createDoctor categoryId validation (US2)', () => {
   beforeEach(async () => {
     prisma = mockPrisma();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        AdminService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: mockAudit() },
+      ],
     }).compile();
     service = module.get(AdminService);
   });
@@ -484,7 +520,7 @@ describe('AdminService — createDoctor categoryId validation (US2)', () => {
   it('createDoctor throws NotFound when the categoryId does not exist', async () => {
     prisma.category.findUnique.mockResolvedValueOnce(null);
     await expect(
-      service.createDoctor({ name: 'Dr. X', categoryId: 'missing' }),
+      service.createDoctor({ name: 'Dr. X', categoryId: 'missing' }, 'admin1'),
     ).rejects.toThrow(NotFoundException);
     expect(prisma.doctor.create).not.toHaveBeenCalled();
   });
@@ -495,7 +531,7 @@ describe('AdminService — createDoctor categoryId validation (US2)', () => {
       status: 'DEACTIVATED',
     });
     await expect(
-      service.createDoctor({ name: 'Dr. X', categoryId: 'cat1' }),
+      service.createDoctor({ name: 'Dr. X', categoryId: 'cat1' }, 'admin1'),
     ).rejects.toThrow(BadRequestException);
     expect(prisma.doctor.create).not.toHaveBeenCalled();
   });
@@ -516,10 +552,13 @@ describe('AdminService — createDoctor categoryId validation (US2)', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    const doctor = await service.createDoctor({
-      name: 'Dr. Y',
-      categoryId: 'cat1',
-    });
+    const doctor = await service.createDoctor(
+      {
+        name: 'Dr. Y',
+        categoryId: 'cat1',
+      },
+      'admin1',
+    );
     expect(doctor.category).toEqual({ id: 'cat1', name: 'Cardiology' });
     const createArgs = prisma.doctor.create.mock.calls[0]?.[0] as Record<
       string,
@@ -538,7 +577,11 @@ describe('AdminService — listDoctors with categoryId filter (US2)', () => {
   beforeEach(async () => {
     prisma = mockPrisma();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        AdminService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: mockAudit() },
+      ],
     }).compile();
     service = module.get(AdminService);
   });
@@ -578,7 +621,11 @@ describe('AdminService — updateDoctor categoryId (US3)', () => {
   beforeEach(async () => {
     prisma = mockPrisma();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        AdminService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: mockAudit() },
+      ],
     }).compile();
     service = module.get(AdminService);
   });
@@ -606,7 +653,11 @@ describe('AdminService — updateDoctor categoryId (US3)', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    const result = await service.updateDoctor('d1', { name: 'Dr. X renamed' });
+    const result = await service.updateDoctor(
+      'd1',
+      { name: 'Dr. X renamed' },
+      'admin1',
+    );
     expect(result.category).toEqual({ id: 'cat_existing', name: 'Cardiology' });
     const updateArgs = prisma.doctor.update.mock.calls[0]?.[0] as Record<
       string,
@@ -644,7 +695,11 @@ describe('AdminService — updateDoctor categoryId (US3)', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    const result = await service.updateDoctor('d1', { categoryId: 'cat_new' });
+    const result = await service.updateDoctor(
+      'd1',
+      { categoryId: 'cat_new' },
+      'admin1',
+    );
     expect(result.category).toEqual({ id: 'cat_new', name: 'Pediatrics' });
     const updateArgs = prisma.doctor.update.mock.calls[0]?.[0] as Record<
       string,
@@ -667,7 +722,7 @@ describe('AdminService — updateDoctor categoryId (US3)', () => {
     });
     prisma.category.findUnique.mockResolvedValueOnce(null);
     await expect(
-      service.updateDoctor('d1', { categoryId: 'cat_missing' }),
+      service.updateDoctor('d1', { categoryId: 'cat_missing' }, 'admin1'),
     ).rejects.toThrow(NotFoundException);
     expect(prisma.doctor.update).not.toHaveBeenCalled();
   });
@@ -689,7 +744,7 @@ describe('AdminService — updateDoctor categoryId (US3)', () => {
       status: 'DEACTIVATED',
     });
     await expect(
-      service.updateDoctor('d1', { categoryId: 'cat_deact' }),
+      service.updateDoctor('d1', { categoryId: 'cat_deact' }, 'admin1'),
     ).rejects.toThrow(BadRequestException);
     expect(prisma.doctor.update).not.toHaveBeenCalled();
   });

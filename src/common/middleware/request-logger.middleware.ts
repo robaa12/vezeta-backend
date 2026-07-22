@@ -1,10 +1,11 @@
-import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { Injectable, NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
+import { StructuredLogger } from '../logging/structured.logger.js';
 
 @Injectable()
 export class RequestLoggerMiddleware implements NestMiddleware {
-  private readonly logger = new Logger('HTTP');
+  private readonly logger = new StructuredLogger('HTTP');
 
   use(req: Request, res: Response, next: NextFunction): void {
     const requestId =
@@ -13,14 +14,24 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     res.setHeader('x-request-id', requestId);
 
     const start = Date.now();
-    res.on('finish', () => {
-      const ms = Date.now() - start;
-      const userId = (req as Request & { user?: { id?: string } }).user?.id;
-      this.logger.log(
-        `${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms req=${requestId} user=${userId ?? '-'}`,
-      );
-    });
 
-    next();
+    StructuredLogger.runWithContext(
+      {
+        requestId,
+        method: req.method,
+        url: req.originalUrl,
+      },
+      () => {
+        res.on('finish', () => {
+          const ms = Date.now() - start;
+          const userId = (req as Request & { user?: { id?: string } }).user?.id;
+          this.logger.log(
+            `${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms req=${requestId} user=${userId ?? '-'}`,
+          );
+        });
+
+        next();
+      },
+    );
   }
 }
