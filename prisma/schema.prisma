@@ -14,22 +14,28 @@ datasource db {
 // =================== Better Auth core tables ===================
 
 model User {
-  id                  String    @id @default(cuid())
+  id                  String   @id @default(cuid())
   name                String
-  email               String    @unique
-  emailVerified       Boolean   @default(false)
+  email               String   @unique
+  emailVerified       Boolean  @default(false)
   image               String?
-  phoneNumber         String?   @unique
-  phoneNumberVerified Boolean   @default(false)
-  role                String    @default("user")
-  isActive            Boolean   @default(true)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  phoneNumber         String?  @unique
+  phoneNumberVerified Boolean  @default(false)
+  role                String   @default("user")
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  sessions Session[]
-  accounts Account[]
-  appointments Appointment[]
+  sessions       Session[]
+  accounts       Account[]
+  appointments   Appointment[]
+  reviews        Review[]
+  medicalRecords MedicalRecord[]
+  notifications  Notification[]
 
+  // Speeds up the last-admin guard and admin stats groupBy.
+  @@index([role, isActive])
+  @@index([isActive])
   @@map("user")
 }
 
@@ -119,9 +125,11 @@ model Doctor {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  slots        DoctorSlot[]
-  appointments Appointment[]
+  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  slots          DoctorSlot[]
+  appointments   Appointment[]
+  reviews        Review[]
+  medicalRecords MedicalRecord[]
 
   @@index([status])
   @@index([categoryId])
@@ -177,12 +185,102 @@ model Appointment {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  user   User       @relation(fields: [userId], references: [id], onDelete: Restrict)
-  doctor Doctor     @relation(fields: [doctorId], references: [id], onDelete: Restrict)
-  slot   DoctorSlot @relation(fields: [slotId], references: [id], onDelete: Restrict)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  doctor        Doctor         @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  slot          DoctorSlot     @relation(fields: [slotId], references: [id], onDelete: Restrict)
+  review        Review?
+  medicalRecord MedicalRecord?
 
   @@index([userId, scheduledAt])
   @@index([doctorId, scheduledAt])
   @@index([status])
+  // (userId|doctorId, status, scheduledAt) — covers the per-user and
+  // per-doctor list-with-status-filter queries (the second composite
+  // column on the existing indexes is `scheduledAt` which doesn't help
+  // when an additional `status` filter is present).
+  @@index([userId, status, scheduledAt])
+  @@index([doctorId, status, scheduledAt])
+  // (status, scheduledAt) — covers the reminder-cron scan that filters
+  // by `status = 'CONFIRMED' AND scheduledAt BETWEEN ? AND ?`.
+  @@index([status, scheduledAt])
   @@map("appointment")
+}
+
+// Review is a 1:1 relation with Appointment: a patient can leave
+// exactly one review per COMPLETED appointment. Built-in module 04
+// (reviews-ratings, plan.md §7). Rating is 1-5 (inclusive). The
+// (appointmentId, doctorId) pair is denormalised from the appointment
+// to support the public `/api/doctors/:id/reviews` listing without a
+// join through appointment every read.
+model Review {
+  id            String      @id @default(cuid())
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  doctorId      String
+  doctor        Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  rating        Int
+  comment       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([doctorId, createdAt])
+  @@index([userId])
+  @@map("review")
+}
+
+// MedicalRecord is a 1:1 with Appointment: created by an admin (the
+// platform acts on the treating doctor's behalf — see feature
+// 003-remove-doctor-role: doctors are not users and cannot log in).
+// Read access is restricted to the admin (acting as the treating
+// doctor) and the patient who owns the appointment — constitution
+// principle VI (Auth & Access Control) flags medical record access as
+// a non-negotiable day-one constraint.
+model MedicalRecord {
+  id             String      @id @default(cuid())
+  appointmentId  String      @unique
+  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  patientId      String
+  patient        User        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId       String
+  doctor         Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  notes          String?
+  attachmentUrls String[]
+  createdById    String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@map("medical_record")
+}
+
+// Notification is an in-app inbox row (channel-aware) optionally
+// dispatched via email/SMS through the existing EmailService. Driven by
+// domain events from other modules (constitution principle II —
+// Domain-Event Decoupling): appointment.created/confirmed/cancelled/
+// completed, review.posted, medical-record.created.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   String    @default("EMAIL")
+  status    String    @default("QUEUED")
+  title     String
+  body      String
+  metadata  Json?
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([status])
+  // GIN index on metadata is added in a follow-up migration because
+  // Prisma's schema language does not yet support functional / GIN
+  // indexes natively. The reminder cron uses
+  // `metadata: { path: ['kind'], equals: 'appointment.reminder' }`
+  // and benefits from `CREATE INDEX notification_metadata_gin
+  // ON notification USING gin (metadata jsonb_path_ops);`.
+  @@map("notification")
 }
