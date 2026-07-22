@@ -2,21 +2,10 @@ import { betterAuth } from 'better-auth';
 import { prismaAdapter } from '@better-auth/prisma-adapter';
 import { emailOTP } from 'better-auth/plugins/email-otp';
 import { phoneNumber } from 'better-auth/plugins/phone-number';
+import { APIError } from 'better-auth/api';
 import { PrismaClient } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
-
-const sendEmailOTP = (data: {
-  email: string;
-  otp: string;
-  type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email';
-}): Promise<void> => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      `[email-otp] type=${data.type} email=${data.email} otp=${data.otp}`,
-    );
-  }
-  return Promise.resolve();
-};
+import type { EmailService } from '../common/email/email.service.js';
 
 const sendPhoneOTP = (data: {
   phoneNumber: string;
@@ -59,6 +48,7 @@ function resolveAuthSecret(): string {
 
 export const createAuth = (
   prismaService: PrismaService,
+  emailService: EmailService,
 ): ReturnType<typeof betterAuth<Record<string, unknown>>> => {
   return betterAuth({
     baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
@@ -79,7 +69,14 @@ export const createAuth = (
     session: {
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,
-      cookieCache: { enabled: true, maxAge: 60 * 5 },
+      // Disable Better Auth's signed cookie cache. When enabled,
+      // request.user (and therefore RolesGuard's role + isActive
+      // checks) is served from the HMAC-signed session cookie for
+      // up to 5 minutes after a write, so demote / deactivate /
+      // password-reset take effect with up to 5 minutes of lag.
+      // The DB read per request is the right trade-off for an
+      // authenticated backend.
+      cookieCache: { enabled: false },
     },
     advanced: {
       cookiePrefix: 'vezeta',
@@ -158,7 +155,12 @@ export const createAuth = (
               select: { isActive: true },
             });
             if (user && user.isActive === false) {
-              throw new Error('account_deactivated');
+              // Better Auth expects APIError from `better-auth/api` so
+              // the request is rejected with the right HTTP status.
+              // A plain Error surfaces as a 500.
+              throw new APIError('FORBIDDEN', {
+                message: 'account_deactivated',
+              });
             }
             return Promise.resolve({ data: account as never });
           },
@@ -169,7 +171,9 @@ export const createAuth = (
       emailOTP({
         otpLength: 6,
         expiresIn: 600,
-        sendVerificationOTP: sendEmailOTP,
+        sendVerificationOTP: async (data) => {
+          await emailService.sendOtp(data);
+        },
         overrideDefaultEmailVerification: true,
       }),
       phoneNumber({

@@ -13,20 +13,29 @@ const mockPrisma = () => {
     user: {
       findUnique: jest.fn(),
       count: jest.fn(),
+      groupBy: jest.fn(),
       update: jest.fn(),
     },
     doctor: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
+      groupBy: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
     },
     category: {
       findUnique: jest.fn(),
+      count: jest.fn(),
+      groupBy: jest.fn(),
     },
+    appointment: { count: jest.fn(), groupBy: jest.fn() },
+    review: { count: jest.fn() },
+    medicalRecord: { count: jest.fn() },
+    notification: { groupBy: jest.fn() },
     session: { deleteMany: jest.fn() },
+    $transaction: jest.fn(),
   };
 };
 
@@ -160,6 +169,112 @@ describe('AdminService — changeUserRole', () => {
   });
 });
 
+describe('AdminService — deactivateUser last-admin guard', () => {
+  let service: AdminService;
+  let prisma: ReturnType<typeof mockPrisma>;
+  let txMock: Record<string, unknown>;
+
+  beforeEach(async () => {
+    prisma = mockPrisma();
+    txMock = {
+      user: { update: jest.fn() },
+      session: { deleteMany: jest.fn() },
+    };
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock),
+    );
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get(AdminService);
+  });
+
+  it('throws NotFound when the user does not exist', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(null);
+    await expect(service.deactivateUser('u1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('rejects deactivation of the last active admin (lockout prevention)', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      role: 'admin',
+      isActive: true,
+    });
+    prisma.user.count.mockResolvedValueOnce(0);
+    await expect(service.deactivateUser('u1')).rejects.toThrow(
+      ConflictException,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('allows deactivation of an active admin when other active admins exist', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      role: 'admin',
+      isActive: true,
+    });
+    prisma.user.count.mockResolvedValueOnce(1);
+    (txMock['user']['update'] as jest.Mock).mockResolvedValueOnce({
+      id: 'u1',
+      isActive: false,
+      name: 'X',
+      email: 'x@x.com',
+    });
+    (txMock['session']['deleteMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 2,
+    });
+    const result = await service.deactivateUser('u1');
+    expect(result.isActive).toBe(false);
+    expect(txMock['session']['deleteMany']).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+    });
+  });
+
+  it('allows deactivation of a non-admin user (no last-admin check)', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      role: 'user',
+      isActive: true,
+    });
+    (txMock['user']['update'] as jest.Mock).mockResolvedValueOnce({
+      id: 'u1',
+      isActive: false,
+      name: 'X',
+      email: 'x@x.com',
+    });
+    (txMock['session']['deleteMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
+    await expect(service.deactivateUser('u1')).resolves.toMatchObject({
+      isActive: false,
+    });
+    expect(prisma.user.count).not.toHaveBeenCalled();
+  });
+
+  it('allows deactivation of a deactivated admin (no last-admin check, they are not active)', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      role: 'admin',
+      isActive: false,
+    });
+    (txMock['user']['update'] as jest.Mock).mockResolvedValueOnce({
+      id: 'u1',
+      isActive: false,
+      name: 'X',
+      email: 'x@x.com',
+    });
+    (txMock['session']['deleteMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
+    await expect(service.deactivateUser('u1')).resolves.toMatchObject({
+      isActive: false,
+    });
+    expect(prisma.user.count).not.toHaveBeenCalled();
+  });
+});
+
 describe('AdminService — Doctor CRUD smoke', () => {
   let service: AdminService;
   let prisma: ReturnType<typeof mockPrisma>;
@@ -221,7 +336,7 @@ describe('AdminService — Doctor CRUD smoke', () => {
     );
   });
 
-  it('deleteDoctor succeeds when doctor exists', async () => {
+  it('deleteDoctor succeeds when doctor exists and has no history', async () => {
     prisma.doctor.findUnique.mockResolvedValueOnce({
       id: 'd1',
       name: 'A',
@@ -233,8 +348,124 @@ describe('AdminService — Doctor CRUD smoke', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    prisma.appointment.count.mockResolvedValueOnce(0);
+    prisma.review.count.mockResolvedValueOnce(0);
+    prisma.medicalRecord.count.mockResolvedValueOnce(0);
     prisma.doctor.delete.mockResolvedValueOnce({ id: 'd1' });
     await expect(service.deleteDoctor('d1')).resolves.toBeUndefined();
+  });
+
+  it('deleteDoctor rejects with 409 when the doctor has appointments', async () => {
+    prisma.doctor.findUnique.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'A',
+      categoryId: 'cat1',
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    prisma.appointment.count.mockResolvedValueOnce(3);
+    prisma.review.count.mockResolvedValueOnce(0);
+    prisma.medicalRecord.count.mockResolvedValueOnce(0);
+    await expect(service.deleteDoctor('d1')).rejects.toThrow(ConflictException);
+    expect(prisma.doctor.delete).not.toHaveBeenCalled();
+  });
+
+  it('deleteDoctor rejects with 409 when the doctor has reviews', async () => {
+    prisma.doctor.findUnique.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'A',
+      categoryId: 'cat1',
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    prisma.appointment.count.mockResolvedValueOnce(0);
+    prisma.review.count.mockResolvedValueOnce(2);
+    prisma.medicalRecord.count.mockResolvedValueOnce(0);
+    await expect(service.deleteDoctor('d1')).rejects.toThrow(ConflictException);
+  });
+
+  it('deleteDoctor rejects with 409 when the doctor has medical records', async () => {
+    prisma.doctor.findUnique.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'A',
+      categoryId: 'cat1',
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    prisma.appointment.count.mockResolvedValueOnce(0);
+    prisma.review.count.mockResolvedValueOnce(0);
+    prisma.medicalRecord.count.mockResolvedValueOnce(1);
+    await expect(service.deleteDoctor('d1')).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('AdminService — getStats', () => {
+  let service: AdminService;
+  let prisma: ReturnType<typeof mockPrisma>;
+
+  beforeEach(async () => {
+    prisma = mockPrisma();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AdminService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get(AdminService);
+  });
+
+  it('aggregates all counters concurrently and shapes them by status', async () => {
+    prisma.user.count.mockResolvedValueOnce(10).mockResolvedValueOnce(8);
+    prisma.user.groupBy.mockResolvedValueOnce([
+      { role: 'user', _count: { _all: 9 } },
+      { role: 'admin', _count: { _all: 1 } },
+    ]);
+    prisma.doctor.count.mockResolvedValueOnce(5);
+    prisma.doctor.groupBy.mockResolvedValueOnce([
+      { status: 'ACTIVE', _count: { _all: 4 } },
+      { status: 'DEACTIVATED', _count: { _all: 1 } },
+    ]);
+    prisma.category.count.mockResolvedValueOnce(3);
+    prisma.category.groupBy.mockResolvedValueOnce([
+      { status: 'ACTIVE', _count: { _all: 3 } },
+    ]);
+    prisma.appointment.count.mockResolvedValueOnce(0);
+    prisma.appointment.groupBy.mockResolvedValueOnce([
+      { status: 'PENDING', _count: { _all: 2 } },
+      { status: 'COMPLETED', _count: { _all: 7 } },
+    ]);
+    prisma.review.count.mockResolvedValueOnce(6);
+    prisma.medicalRecord.count.mockResolvedValueOnce(4);
+    prisma.notification.groupBy.mockResolvedValueOnce([
+      { status: 'SENT', _count: { _all: 100 } },
+      { status: 'FAILED', _count: { _all: 2 } },
+    ]);
+
+    const result = await service.getStats();
+
+    expect(result.users).toEqual({
+      total: 10,
+      active: 8,
+      byRole: { user: 9, admin: 1 },
+    });
+    expect(result.doctors).toEqual({
+      total: 5,
+      byStatus: { ACTIVE: 4, DEACTIVATED: 1 },
+    });
+    expect(result.categories.byStatus).toEqual({ ACTIVE: 3 });
+    expect(result.appointments.byStatus).toEqual({
+      PENDING: 2,
+      COMPLETED: 7,
+    });
+    expect(result.reviews.total).toBe(6);
+    expect(result.medicalRecords.total).toBe(4);
+    expect(result.notifications.byStatus).toEqual({ SENT: 100, FAILED: 2 });
   });
 });
 

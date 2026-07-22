@@ -618,9 +618,11 @@ describe('AppointmentsService — confirmAppointment (US3)', () => {
       appointment: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         count: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
       $transaction: jest.fn(),
     };
@@ -634,6 +636,9 @@ describe('AppointmentsService — confirmAppointment (US3)', () => {
   });
 
   it('throws 404 for a non-existent appointment', async () => {
+    (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
     (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce(null);
     await expect(service.confirmAppointment('a1')).rejects.toThrow(
       NotFoundException,
@@ -641,6 +646,9 @@ describe('AppointmentsService — confirmAppointment (US3)', () => {
   });
 
   it('throws 409 for a CONFIRMED appointment', async () => {
+    (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
     (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
       id: 'a1',
       status: 'CONFIRMED',
@@ -651,6 +659,9 @@ describe('AppointmentsService — confirmAppointment (US3)', () => {
   });
 
   it('throws 409 for a CANCELLED appointment', async () => {
+    (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
     (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
       id: 'a1',
       status: 'CANCELLED',
@@ -661,11 +672,12 @@ describe('AppointmentsService — confirmAppointment (US3)', () => {
   });
 
   it('succeeds for a PENDING appointment (200)', async () => {
-    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
-      id: 'a1',
-      status: 'PENDING',
+    (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 1,
     });
-    (prisma['appointment'].update as jest.Mock).mockResolvedValueOnce({
+    (
+      prisma['appointment'].findUniqueOrThrow as jest.Mock
+    ).mockResolvedValueOnce({
       id: 'a1',
       status: 'CONFIRMED',
       scheduledAt: new Date(),
@@ -683,10 +695,10 @@ describe('AppointmentsService — confirmAppointment (US3)', () => {
     });
     const result = await service.confirmAppointment('a1');
     expect(result.appointment.status).toBe('CONFIRMED');
-    const updateArgs = (prisma['appointment'].update as jest.Mock).mock
+    const updateArgs = (prisma['appointment'].updateMany as jest.Mock).mock
       .calls[0]?.[0];
     expect(updateArgs).toMatchObject({
-      where: { id: 'a1' },
+      where: { id: 'a1', status: 'PENDING' },
       data: { status: 'CONFIRMED' },
     });
   });
@@ -714,15 +726,17 @@ describe('AppointmentsService — cancelMyAppointment (US5)', () => {
       appointment: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         count: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
       $transaction: jest.fn(),
     };
     txMock = {
-      appointment: { update: jest.fn() },
-      doctorSlot: { update: jest.fn() },
+      appointment: { updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
+      doctorSlot: { updateMany: jest.fn() },
     };
     (prisma['$transaction'] as jest.Mock).mockImplementation(
       async (fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock),
@@ -798,7 +812,12 @@ describe('AppointmentsService — cancelMyAppointment (US5)', () => {
       status: 'CONFIRMED',
       scheduledAt: new Date(Date.now() + 48 * 3600_000),
     });
-    (txMock['appointment'].update as jest.Mock).mockResolvedValueOnce({
+    (txMock['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+    (
+      txMock['appointment'].findUniqueOrThrow as jest.Mock
+    ).mockResolvedValueOnce({
       id: 'a1',
       status: 'CANCELLED',
       slotId: 's1',
@@ -815,17 +834,19 @@ describe('AppointmentsService — cancelMyAppointment (US5)', () => {
         category: { id: 'c1', name: 'Cardiology' },
       },
     });
-    (txMock['doctorSlot'].update as jest.Mock).mockResolvedValueOnce({});
+    (txMock['doctorSlot'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
     const result = await service.cancelMyAppointment('u1', 'a1');
     expect(result.appointment.status).toBe('CANCELLED');
-    expect(txMock['doctorSlot'].update).toHaveBeenCalledWith({
-      where: { id: 's1' },
+    expect(txMock['doctorSlot'].updateMany).toHaveBeenCalledWith({
+      where: { id: 's1', status: 'BOOKED' },
       data: { status: 'AVAILABLE' },
     });
-    const updateArgs = (txMock['appointment'].update as jest.Mock).mock
+    const updateArgs = (txMock['appointment'].updateMany as jest.Mock).mock
       .calls[0]?.[0];
     expect(updateArgs).toMatchObject({
-      where: { id: 'a1' },
+      where: { id: 'a1', status: { in: ['PENDING', 'CONFIRMED'] } },
       data: expect.objectContaining({
         status: 'CANCELLED',
         cancelledBy: 'USER',
@@ -856,15 +877,17 @@ describe('AppointmentsService — cancelAppointment admin (US6)', () => {
       appointment: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         count: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
       $transaction: jest.fn(),
     };
     txMock = {
-      appointment: { update: jest.fn() },
-      doctorSlot: { update: jest.fn() },
+      appointment: { updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
+      doctorSlot: { updateMany: jest.fn() },
     };
     (prisma['$transaction'] as jest.Mock).mockImplementation(
       async (fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock),
@@ -911,7 +934,12 @@ describe('AppointmentsService — cancelAppointment admin (US6)', () => {
       status: 'CONFIRMED',
       scheduledAt: new Date(Date.now() + 1 * 3600_000),
     });
-    (txMock['appointment'].update as jest.Mock).mockResolvedValueOnce({
+    (txMock['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+    (
+      txMock['appointment'].findUniqueOrThrow as jest.Mock
+    ).mockResolvedValueOnce({
       id: 'a1',
       status: 'CANCELLED',
       slotId: 's1',
@@ -928,10 +956,12 @@ describe('AppointmentsService — cancelAppointment admin (US6)', () => {
         category: { id: 'c1', name: 'Cardiology' },
       },
     });
-    (txMock['doctorSlot'].update as jest.Mock).mockResolvedValueOnce({});
+    (txMock['doctorSlot'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
     const result = await service.cancelAppointment('a1');
     expect(result.appointment.status).toBe('CANCELLED');
-    const updateArgs = (txMock['appointment'].update as jest.Mock).mock
+    const updateArgs = (txMock['appointment'].updateMany as jest.Mock).mock
       .calls[0]?.[0];
     expect(updateArgs).toMatchObject({
       data: expect.objectContaining({
@@ -939,8 +969,8 @@ describe('AppointmentsService — cancelAppointment admin (US6)', () => {
         cancelledBy: 'ADMIN',
       }),
     });
-    expect(txMock['doctorSlot'].update).toHaveBeenCalledWith({
-      where: { id: 's1' },
+    expect(txMock['doctorSlot'].updateMany).toHaveBeenCalledWith({
+      where: { id: 's1', status: 'BOOKED' },
       data: { status: 'AVAILABLE' },
     });
   });
@@ -967,9 +997,11 @@ describe('AppointmentsService — completeAppointment (US7)', () => {
       appointment: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         count: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
       $transaction: jest.fn(),
     };
@@ -983,6 +1015,9 @@ describe('AppointmentsService — completeAppointment (US7)', () => {
   });
 
   it('returns 404 for non-existent', async () => {
+    (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
     (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce(null);
     await expect(service.completeAppointment('a1')).rejects.toThrow(
       NotFoundException,
@@ -990,6 +1025,9 @@ describe('AppointmentsService — completeAppointment (US7)', () => {
   });
 
   it('returns 409 for a PENDING appointment', async () => {
+    (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
     (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
       id: 'a1',
       status: 'PENDING',
@@ -1001,6 +1039,9 @@ describe('AppointmentsService — completeAppointment (US7)', () => {
   });
 
   it('returns 409 for a CANCELLED appointment', async () => {
+    (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
     (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
       id: 'a1',
       status: 'CANCELLED',
@@ -1012,6 +1053,9 @@ describe('AppointmentsService — completeAppointment (US7)', () => {
   });
 
   it('returns 409 for an already-COMPLETED appointment', async () => {
+    (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
     (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
       id: 'a1',
       status: 'COMPLETED',
@@ -1022,11 +1066,27 @@ describe('AppointmentsService — completeAppointment (US7)', () => {
     );
   });
 
-  it('returns 400 for a CONFIRMED appointment with scheduledAt in the future', async () => {
-    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+  it('returns 400 for a CONFIRMED appointment with scheduledAt in the future (after a successful update)', async () => {
+    (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+    (
+      prisma['appointment'].findUniqueOrThrow as jest.Mock
+    ).mockResolvedValueOnce({
       id: 'a1',
-      status: 'CONFIRMED',
+      status: 'COMPLETED',
       scheduledAt: new Date(Date.now() + 3600_000),
+      patientNotes: null,
+      adminNotes: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      doctor: {
+        id: 'd1',
+        name: 'Dr. X',
+        category: { id: 'c1', name: 'Cardiology' },
+      },
     });
     await expect(service.completeAppointment('a1')).rejects.toThrow(
       BadRequestException,
@@ -1034,12 +1094,12 @@ describe('AppointmentsService — completeAppointment (US7)', () => {
   });
 
   it('succeeds for a past-time CONFIRMED appointment (200)', async () => {
-    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
-      id: 'a1',
-      status: 'CONFIRMED',
-      scheduledAt: new Date(Date.now() - 3600_000),
+    (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 1,
     });
-    (prisma['appointment'].update as jest.Mock).mockResolvedValueOnce({
+    (
+      prisma['appointment'].findUniqueOrThrow as jest.Mock
+    ).mockResolvedValueOnce({
       id: 'a1',
       status: 'COMPLETED',
       scheduledAt: new Date(Date.now() - 3600_000),
