@@ -1,0 +1,2844 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/me": {
+      "get": {
+        "description": "Returns the session user resolved from the Better Auth session cookie.",
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The session user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "emailVerified": {
+                      "type": "boolean"
+                    },
+                    "phoneNumber": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "phoneNumberVerified": {
+                      "type": "boolean"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "admin"
+                      ]
+                    },
+                    "isActive": {
+                      "type": "boolean"
+                    },
+                    "image": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "linkedSocialProviders": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "provider": {
+                            "type": "string",
+                            "enum": [
+                              "google",
+                              "facebook"
+                            ]
+                          },
+                          "linkedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No active session."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Get the currently authenticated user",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "AuthController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Service is up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/oauth/start": {
+      "get": {
+        "description": "Issues the Better Auth CSRF state cookie and 302-redirects to the provider authorization endpoint. Use this for plain browser navigation from a \"Continue with Google/Facebook\" button. Note: mounted at /api/oauth/start (not /api/auth/sign-in/social) to avoid the Better Auth middleware wildcard.",
+        "operationId": "AuthController_signInSocialBrowser",
+        "parameters": [
+          {
+            "name": "provider",
+            "required": true,
+            "in": "query",
+            "description": "Social provider to sign in with.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "google",
+                "facebook"
+              ]
+            }
+          },
+          {
+            "name": "callbackURL",
+            "required": false,
+            "in": "query",
+            "description": "Frontend route to return to after the OAuth flow completes.",
+            "schema": {
+              "maxLength": 2048,
+              "example": "/dashboard",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Start a social OAuth flow (browser-friendly)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/link-social": {
+      "post": {
+        "description": "Returns a URL the frontend should navigate to in order to start the OAuth flow. The callback will only succeed if the social account email matches the current user email.",
+        "operationId": "AuthController_linkSocial",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkSocialDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OAuth initiation URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "User's email is not verified, or the user is deactivated."
+          },
+          "409": {
+            "description": "A linked account for this provider already exists."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Initiate linking a social provider to the current account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/social-accounts/{provider}": {
+      "delete": {
+        "description": "Removes a previously linked Google or Facebook account. Fails with 422 if the unlink would leave the user with no remaining sign-in method.",
+        "operationId": "AuthController_unlinkSocial",
+        "parameters": [
+          {
+            "name": "provider",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account unlinked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "google",
+                        "facebook"
+                      ]
+                    },
+                    "unlinkedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "404": {
+            "description": "No linked account for this provider."
+          },
+          "422": {
+            "description": "Cannot unlink the last remaining sign-in method."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Unlink a social provider from the current account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/admin/doctors": {
+      "get": {
+        "description": "Returns doctors with optional status, categoryId, search filters and pagination.",
+        "operationId": "AdminController_listDoctors",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "DEACTIVATED"
+              ]
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "description": "Filter to doctors assigned to this categoryId.",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Substring match on name or category name",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Doctors and pagination metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "doctors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "pageSize": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "List doctors",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "AdminController_createDoctor",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDoctorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Doctor created."
+          },
+          "400": {
+            "description": "Validation error."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Create a new doctor record",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/doctors/{id}": {
+      "get": {
+        "operationId": "AdminController_getDoctor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Doctor not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Get a doctor by id",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminController_updateDoctor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDoctorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Doctor not found."
+          },
+          "409": {
+            "description": "No fields to update."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Update a doctor (partial)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminController_deleteDoctor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Doctor deleted."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Doctor not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Hard-delete a doctor",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/doctors/{id}/deactivate": {
+      "patch": {
+        "operationId": "AdminController_deactivateDoctor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Doctor not found."
+          },
+          "409": {
+            "description": "Doctor is already deactivated."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Soft-deactivate a doctor",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{id}": {
+      "get": {
+        "operationId": "AdminController_getUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "User not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Get a user by id",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{id}/role": {
+      "patch": {
+        "operationId": "AdminController_changeUserRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleChangeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid role value."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "User not found."
+          },
+          "409": {
+            "description": "Demotion rejected — last active admin."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Promote or demote a user",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{id}/deactivate": {
+      "patch": {
+        "operationId": "AdminController_deactivateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "User not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Deactivate a user account",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ping": {
+      "get": {
+        "operationId": "AdminController_ping",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Pong.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pong": {
+                      "type": "boolean",
+                      "example": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Admin module liveness probe",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/stats": {
+      "get": {
+        "description": "Aggregated counts: users (by role), doctors (by status), categories (by status), appointments (by status), reviews, medical records, notifications (by status).",
+        "operationId": "AdminController_getStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Aggregated counts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": {
+                      "type": "object"
+                    },
+                    "doctors": {
+                      "type": "object"
+                    },
+                    "categories": {
+                      "type": "object"
+                    },
+                    "appointments": {
+                      "type": "object"
+                    },
+                    "reviews": {
+                      "type": "object"
+                    },
+                    "medicalRecords": {
+                      "type": "object"
+                    },
+                    "notifications": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Dashboard stats (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/doctors/{doctorId}/slots": {
+      "post": {
+        "operationId": "AdminAppointmentsController_createSlot",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSlotDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Slot created."
+          },
+          "400": {
+            "description": "Past-time slot, endsAt <= startsAt, or DEACTIVATED doctor/category."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Doctor not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Create a slot for a doctor (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/slots": {
+      "get": {
+        "operationId": "AdminAppointmentsController_listSlots",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by doctor id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "AVAILABLE",
+                "BOOKED",
+                "BLOCKED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "1-based page number.",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (1-100).",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of slots."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "List slots (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/slots/{id}": {
+      "get": {
+        "operationId": "AdminAppointmentsController_getSlot",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Slot id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slot found."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Slot not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Get a slot by id (admin)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminAppointmentsController_updateSlot",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Slot id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSlotDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Slot updated."
+          },
+          "400": {
+            "description": "No fields to update."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Slot not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Update a slot (partial)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminAppointmentsController_deleteSlot",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Slot id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Slot deleted."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Slot not found."
+          },
+          "409": {
+            "description": "Slot is BOOKED or BLOCKED — only AVAILABLE slots can be deleted."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Hard-delete an AVAILABLE slot (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/slots/{id}/block": {
+      "patch": {
+        "operationId": "AdminAppointmentsController_blockSlot",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Slot id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slot blocked."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Slot not found."
+          },
+          "409": {
+            "description": "Slot is BOOKED."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Soft-block a slot (idempotent)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/appointments/{id}/confirm": {
+      "patch": {
+        "operationId": "AdminAppointmentsController_confirmAppointment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Appointment id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment confirmed."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Appointment not found."
+          },
+          "409": {
+            "description": "Appointment is not in PENDING status."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Confirm a PENDING appointment (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/appointments/{id}/cancel": {
+      "patch": {
+        "operationId": "AdminAppointmentsController_cancelAppointment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Appointment id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment cancelled; slot released."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Appointment not found."
+          },
+          "409": {
+            "description": "Appointment is already CANCELLED or COMPLETED."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Cancel any appointment (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/appointments/{id}/complete": {
+      "patch": {
+        "operationId": "AdminAppointmentsController_completeAppointment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Appointment id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment completed."
+          },
+          "400": {
+            "description": "scheduledAt is in the future."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Appointment not found."
+          },
+          "409": {
+            "description": "Appointment is not in CONFIRMED status."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Mark a CONFIRMED appointment as completed (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/appointments": {
+      "get": {
+        "description": "Paginated list of all appointments, filterable by status, userId, doctorId.",
+        "operationId": "AdminAppointmentsController_listAppointments",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "CONFIRMED",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "userId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by patient user id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "doctorId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by doctor id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "1-based page number.",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (1-100).",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of appointments."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "List all appointments (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/appointments/{id}": {
+      "get": {
+        "operationId": "AdminAppointmentsController_getAppointment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Appointment id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment found."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Appointment not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Get an appointment by id (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/doctors/{doctorId}/slots": {
+      "get": {
+        "description": "Anonymous-accessible list of AVAILABLE slots for an ACTIVE doctor in an ACTIVE category, sorted ascending by start time.",
+        "operationId": "SlotsController_listPublicSlots",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Available slots, sorted ascending.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "slots": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Doctor not found, is DEACTIVATED, or is in a DEACTIVATED category."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          }
+        },
+        "summary": "List AVAILABLE slots for a doctor (public)",
+        "tags": [
+          "slots"
+        ]
+      }
+    },
+    "/api/appointments": {
+      "post": {
+        "operationId": "AppointmentsController_book",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookAppointmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Appointment created in PENDING. Slot is now BOOKED."
+          },
+          "400": {
+            "description": "Past-time slot, DEACTIVATED doctor or category."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Account is deactivated."
+          },
+          "404": {
+            "description": "Slot does not exist."
+          },
+          "409": {
+            "description": "Slot is no longer available."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          }
+        },
+        "summary": "Book a slot (patient)",
+        "tags": [
+          "appointments"
+        ]
+      },
+      "get": {
+        "operationId": "AppointmentsController_listMine",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "CONFIRMED",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "1-based page number.",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (1-100).",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of the patient's appointments."
+          },
+          "400": {
+            "description": "Invalid query parameters."
+          },
+          "401": {
+            "description": "No active session."
+          }
+        },
+        "summary": "List my appointments (patient)",
+        "tags": [
+          "appointments"
+        ]
+      }
+    },
+    "/api/appointments/{id}/cancel": {
+      "patch": {
+        "operationId": "AppointmentsController_cancelMine",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment cancelled; slot released."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Within 24h of scheduled time."
+          },
+          "404": {
+            "description": "Appointment does not exist or belongs to a different patient."
+          },
+          "409": {
+            "description": "Appointment is already CANCELLED or COMPLETED."
+          }
+        },
+        "summary": "Cancel my appointment (patient)",
+        "tags": [
+          "appointments"
+        ]
+      }
+    },
+    "/api/doctors": {
+      "get": {
+        "description": "Anonymous-accessible listing of doctors. Optional filters: categoryId (FK equality, requires the category to be ACTIVE) and search (case-insensitive substring on name + category.name). Pagination via page (default 1) and pageSize (default 20, max 100).",
+        "operationId": "DoctorsController_listDoctors",
+        "parameters": [
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "description": "Filter to doctors in this category (and only ACTIVE categories).",
+            "schema": {
+              "maxLength": 64,
+              "example": "seed_cardiology",
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Case-insensitive substring match on doctor name OR category name.",
+            "schema": {
+              "maxLength": 120,
+              "example": "Smith",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of doctors.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "doctors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "pageSize": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          }
+        },
+        "summary": "List ACTIVE doctors (public)",
+        "tags": [
+          "doctors"
+        ]
+      }
+    },
+    "/api/doctors/{id}": {
+      "get": {
+        "description": "Returns the full public record of a single ACTIVE doctor whose category is also ACTIVE. Returns 404 otherwise.",
+        "operationId": "DoctorsController_getDoctor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Doctor found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "doctor": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          }
+        },
+        "summary": "Get a public doctor profile",
+        "tags": [
+          "doctors"
+        ]
+      }
+    },
+    "/api/admin/categories": {
+      "get": {
+        "description": "Returns categories with optional status + search filters and pagination. Admin-only.",
+        "operationId": "AdminCategoriesController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "DEACTIVATED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Case-insensitive substring match on name.",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "1-based page number.",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (1-100).",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of categories."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "List categories (admin)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "AdminCategoriesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Category created."
+          },
+          "400": {
+            "description": "Validation error."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "409": {
+            "description": "A category with this name already exists."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Create a new category (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/categories/{id}": {
+      "get": {
+        "operationId": "AdminCategoriesController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Category id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category found."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Category not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Get a category by id (admin)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminCategoriesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Category id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Category updated."
+          },
+          "400": {
+            "description": "No fields to update."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Category not found."
+          },
+          "409": {
+            "description": "Name collision with another ACTIVE category."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Update a category (partial)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminCategoriesController_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Category id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Category deleted."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Category not found."
+          },
+          "409": {
+            "description": "Category is in use by one or more doctors."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Hard-delete a category",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/categories/{id}/deactivate": {
+      "patch": {
+        "operationId": "AdminCategoriesController_deactivate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Category id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category deactivated (idempotent)."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Category not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Soft-deactivate a category",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "description": "Anonymous-accessible list of active categories used to populate the doctor search dropdown. Sorted alphabetically (case-insensitive).",
+        "operationId": "CategoriesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Active categories, sorted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          }
+        },
+        "summary": "List ACTIVE categories (public)",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
+    "/api/appointments/{id}/review": {
+      "post": {
+        "operationId": "ReviewsController_createReview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Appointment id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Review created."
+          },
+          "400": {
+            "description": "Validation error."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Account is deactivated."
+          },
+          "404": {
+            "description": "Appointment does not exist or belongs to a different patient."
+          },
+          "409": {
+            "description": "Appointment is not COMPLETED, or a review already exists for it."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Leave a review for a completed appointment",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/doctors/{id}/reviews": {
+      "get": {
+        "description": "Paginated list of reviews for a doctor, sorted newest-first, with the aggregate averageRating inlined.",
+        "operationId": "ReviewsController_listDoctorReviews",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "1-based page number.",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (1-100).",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated reviews + aggregate rating."
+          },
+          "404": {
+            "description": "Doctor not found."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          }
+        },
+        "summary": "List a doctor's reviews (public)",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/admin/reviews": {
+      "get": {
+        "description": "Paginated list of all reviews. Optional filters: doctorId, userId.",
+        "operationId": "AdminReviewsController_listReviews",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Paginated list of reviews."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "List all reviews (admin moderation surface)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/reviews/{id}": {
+      "delete": {
+        "operationId": "AdminReviewsController_deleteReview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Review id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Review deleted."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Review not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Delete a review (admin moderation)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "description": "Paginated list of the caller’s notifications, newest first. Optional unreadOnly filter. Includes unreadCount for unread-badge UI.",
+        "operationId": "NotificationsController_listMine",
+        "parameters": [
+          {
+            "name": "unreadOnly",
+            "required": false,
+            "in": "query",
+            "description": "Filter to unread only (readAt is null).",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "1-based page number.",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (1-100).",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated notification list."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Account is deactivated."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "List my notifications (in-app inbox)",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "patch": {
+        "operationId": "NotificationsController_markRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Notification id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkReadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notification updated."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Account is deactivated."
+          },
+          "404": {
+            "description": "Notification does not exist or belongs to another user."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Mark a notification as read or unread",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/notifications/read-all": {
+      "patch": {
+        "operationId": "NotificationsController_markAllRead",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Updated count."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Account is deactivated."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Mark all notifications as read",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/admin/appointments/{id}/medical-record": {
+      "post": {
+        "operationId": "AdminMedicalRecordsController_create",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Appointment id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMedicalRecordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Medical record created."
+          },
+          "400": {
+            "description": "No fields supplied."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Appointment not found."
+          },
+          "409": {
+            "description": "Appointment is not COMPLETED, or a medical record already exists for it."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Create a medical record for a COMPLETED appointment (admin)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminMedicalRecordsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Appointment id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMedicalRecordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Medical record updated."
+          },
+          "400": {
+            "description": "No fields to update."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Medical record not found."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Update an existing medical record (admin)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/appointments/{id}/medical-record": {
+      "get": {
+        "operationId": "MedicalRecordsController_getByAppointment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Appointment id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Medical record."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Account is deactivated."
+          },
+          "404": {
+            "description": "Medical record does not exist or caller is not authorised to view it."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Read the medical record for an appointment",
+        "tags": [
+          "medical-records"
+        ]
+      }
+    },
+    "/api/patients/me/medical-history": {
+      "get": {
+        "description": "Paginated list of all medical records owned by the caller, newest first.",
+        "operationId": "MedicalRecordsController_listMyHistory",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "1-based page number.",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (1-100).",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated medical history."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Account is deactivated."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "List the caller's full medical history across doctors",
+        "tags": [
+          "medical-records"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Vezeeta Backend API",
+    "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, the browser hits `GET /api/oauth/start?provider=google` (or `facebook`) and follows the 302 redirect.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
+    "version": "0.0.1",
+    "contact": {},
+    "x-generated-at": "2026-07-21T19:38:37.497Z"
+  },
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Session and account endpoints exposed by the app."
+    },
+    {
+      "name": "doctors",
+      "description": "Public doctor catalog (browse, search, profile)."
+    },
+    {
+      "name": "categories",
+      "description": "Public category vocabulary."
+    },
+    {
+      "name": "slots",
+      "description": "Public slot picker for a doctor."
+    },
+    {
+      "name": "appointments",
+      "description": "Patient booking flow (book, list, cancel)."
+    },
+    {
+      "name": "reviews",
+      "description": "Patient reviews and public doctor rating."
+    },
+    {
+      "name": "medical-records",
+      "description": "Patient read of their own medical records."
+    },
+    {
+      "name": "notifications",
+      "description": "In-app notifications inbox."
+    },
+    {
+      "name": "admin",
+      "description": "Admin-only management endpoints (require admin role)."
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "cookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "vezeta.session_token",
+        "description": "Better Auth session cookie set by /api/auth/* (prefix configured in src/auth/auth.ts)."
+      }
+    },
+    "schemas": {
+      "LinkSocialDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "enum": [
+              "google",
+              "facebook"
+            ],
+            "type": "string",
+            "description": "Social provider to link to the current account.",
+            "example": "google"
+          },
+          "callbackURL": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "Frontend route to return to after the link completes.",
+            "example": "/profile/settings"
+          }
+        },
+        "required": [
+          "provider"
+        ]
+      },
+      "CreateDoctorDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120,
+            "description": "Doctor's full display name.",
+            "example": "Dr. Jane Smith"
+          },
+          "categoryId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Id of the ACTIVE category this doctor belongs to.",
+            "example": "seed_cardiology"
+          },
+          "bio": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Short biography / about section."
+          },
+          "imageUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri",
+            "description": "Profile photo URL.",
+            "example": "https://cdn.example.com/jane.jpg"
+          }
+        },
+        "required": [
+          "name",
+          "categoryId"
+        ]
+      },
+      "UpdateDoctorDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "categoryId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Id of an ACTIVE category to reassign the doctor to."
+          },
+          "bio": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "imageUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "DEACTIVATED"
+            ],
+            "type": "string"
+          }
+        }
+      },
+      "RoleChangeDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "enum": [
+              "user",
+              "admin"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "CreateSlotDto": {
+        "type": "object",
+        "properties": {
+          "startsAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Slot start time (UTC, ISO 8601). Must be in the future.",
+            "example": "2026-08-01T09:00:00.000Z"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Slot end time (UTC, ISO 8601). Must be strictly after startsAt (service-layer check).",
+            "example": "2026-08-01T09:30:00.000Z"
+          }
+        },
+        "required": [
+          "startsAt",
+          "endsAt"
+        ]
+      },
+      "UpdateSlotDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "BLOCKED"
+            ],
+            "type": "string",
+            "description": "New slot status. BOOKED is NOT settable via this endpoint — booking manages that lifecycle."
+          }
+        }
+      },
+      "BookAppointmentDto": {
+        "type": "object",
+        "properties": {
+          "slotId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Id of an AVAILABLE slot for an ACTIVE doctor in an ACTIVE category.",
+            "example": "slot_abc"
+          },
+          "patientNotes": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Patient-supplied context (e.g. reason for visit)."
+          }
+        },
+        "required": [
+          "slotId"
+        ]
+      },
+      "CreateCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Category display name. Trimmed of leading/trailing whitespace.",
+            "example": "Cardiology"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "DEACTIVATED"
+            ],
+            "type": "string",
+            "description": "Category status. Defaults to ACTIVE when omitted."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "New category name. Trimmed of leading/trailing whitespace."
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "DEACTIVATED"
+            ],
+            "type": "string",
+            "description": "New category status."
+          }
+        }
+      },
+      "CreateReviewDto": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Rating from 1 to 5 (inclusive).",
+            "example": 5
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Optional comment (max 2000 chars)."
+          }
+        },
+        "required": [
+          "rating"
+        ]
+      },
+      "MarkReadDto": {
+        "type": "object",
+        "properties": {
+          "read": {
+            "type": "boolean",
+            "description": "Mark as read (true) or unread (false).",
+            "default": true
+          }
+        }
+      },
+      "CreateMedicalRecordDto": {
+        "type": "object",
+        "properties": {
+          "notes": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Free-text clinical notes (max 10 000 chars)."
+          },
+          "attachmentUrls": {
+            "maxItems": 25,
+            "description": "Public URLs to attachments (e.g. lab results, prescriptions). Max 25 URLs.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      },
+      "UpdateMedicalRecordDto": {
+        "type": "object",
+        "properties": {
+          "notes": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Updated clinical notes."
+          },
+          "attachmentUrls": {
+            "maxItems": 25,
+            "description": "Replacement attachment URL list (max 25).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      }
+    }
+  }
+}
