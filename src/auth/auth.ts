@@ -40,6 +40,23 @@ const sendPhonePasswordResetOTP = (data: {
   return Promise.resolve();
 };
 
+const INSECURE_DEV_SECRET = 'dev-only-insecure-secret-change-in-production';
+
+function resolveAuthSecret(): string {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) {
+    throw new Error(
+      'BETTER_AUTH_SECRET is not set. Generate one with: openssl rand -base64 32',
+    );
+  }
+  if (secret === INSECURE_DEV_SECRET || secret.length < 32) {
+    throw new Error(
+      'BETTER_AUTH_SECRET must be at least 32 random characters and not the committed dev placeholder.',
+    );
+  }
+  return secret;
+}
+
 export const createAuth = (
   prismaService: PrismaService,
 ): ReturnType<typeof betterAuth<Record<string, unknown>>> => {
@@ -49,9 +66,7 @@ export const createAuth = (
       process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
       'http://localhost:3000',
     ],
-    secret:
-      process.env.BETTER_AUTH_SECRET ??
-      'dev-only-insecure-secret-change-in-production',
+    secret: resolveAuthSecret(),
     database: prismaAdapter(prismaService as unknown as PrismaClient, {
       provider: 'postgresql',
     }),
@@ -82,7 +97,7 @@ export const createAuth = (
           type: 'string',
           required: false,
           defaultValue: 'user',
-          input: true,
+          input: false,
         },
         phoneNumber: {
           type: 'string',
@@ -119,6 +134,7 @@ export const createAuth = (
       accountLinking: {
         enabled: true,
         trustedProviders: ['google', 'facebook'],
+        disableImplicitLinking: true,
       },
     },
     databaseHooks: {
@@ -126,14 +142,7 @@ export const createAuth = (
         create: {
           before: (user) => {
             const record = user as unknown as Record<string, unknown>;
-            const role = record.role as string | undefined;
-            const allowedRoles = new Set(['user', 'admin']);
-            if (role !== undefined && !allowedRoles.has(role)) {
-              throw new Error('invalid_role');
-            }
-            return Promise.resolve({
-              data: { ...record, role: role ?? 'user' },
-            });
+            return Promise.resolve({ data: { ...record, role: 'user' } });
           },
         },
       },

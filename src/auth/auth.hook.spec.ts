@@ -5,6 +5,13 @@ import { describe, it, expect } from '@jest/globals';
 // the Better Auth handler and is not directly importable, so we test the
 // behavior in isolation by re-implementing the same logic against a set
 // of inputs and asserting the expected output.
+//
+// SECURITY: the hook is the last line of defence against role self-promotion
+// via /api/auth/sign-up/email. Sign-up must NEVER yield an admin account,
+// regardless of what the client sends in the request body. The corresponding
+// `additionalFields.role.input` is also `false` (see src/auth/auth.ts) so
+// the field is dropped by Better Auth's input parser before reaching us, but
+// we re-assert the invariant here as defence in depth.
 
 interface UserCreateInput {
   name?: string;
@@ -13,26 +20,20 @@ interface UserCreateInput {
   [key: string]: unknown;
 }
 
-const allowedRoles = new Set(['user', 'admin']);
-
 function coerceRoleOnCreate(user: UserCreateInput): { data: UserCreateInput } {
   const record = user;
-  const role = record.role;
-  if (role !== undefined && !allowedRoles.has(role)) {
-    throw new Error('invalid_role');
-  }
-  return { data: { ...record, role: role ?? 'user' } };
+  return { data: { ...record, role: 'user' } };
 }
 
 describe('databaseHooks.user.create.before (role coercion)', () => {
-  it('accepts role: "user"', () => {
+  it('forces role to "user" when role: "user" is supplied', () => {
     const result = coerceRoleOnCreate({ role: 'user' });
     expect(result.data.role).toBe('user');
   });
 
-  it('accepts role: "admin"', () => {
+  it('forces role to "user" when role: "admin" is supplied (regression)', () => {
     const result = coerceRoleOnCreate({ role: 'admin' });
-    expect(result.data.role).toBe('admin');
+    expect(result.data.role).toBe('user');
   });
 
   it('defaults to "user" when role is omitted', () => {
@@ -40,30 +41,18 @@ describe('databaseHooks.user.create.before (role coercion)', () => {
     expect(result.data.role).toBe('user');
   });
 
-  it('rejects role: "doctor"', () => {
-    expect(() => coerceRoleOnCreate({ role: 'doctor' })).toThrow(
-      'invalid_role',
-    );
+  it('forces role to "user" for any other supplied role', () => {
+    expect(coerceRoleOnCreate({ role: 'doctor' }).data.role).toBe('user');
+    expect(coerceRoleOnCreate({ role: 'patient' }).data.role).toBe('user');
+    expect(coerceRoleOnCreate({ role: 'superuser' }).data.role).toBe('user');
+    expect(coerceRoleOnCreate({ role: '' }).data.role).toBe('user');
   });
 
-  it('rejects role: "patient" (legacy value)', () => {
-    expect(() => coerceRoleOnCreate({ role: 'patient' })).toThrow(
-      'invalid_role',
-    );
-  });
-
-  it('rejects unknown role values', () => {
-    expect(() => coerceRoleOnCreate({ role: 'superuser' })).toThrow(
-      'invalid_role',
-    );
-    expect(() => coerceRoleOnCreate({ role: '' })).toThrow('invalid_role');
-  });
-
-  it('preserves other input fields when role is allowed', () => {
+  it('preserves other input fields when forcing role', () => {
     const result = coerceRoleOnCreate({
       name: 'Jane',
       email: 'jane@x.com',
-      role: 'user',
+      role: 'admin',
     });
     expect(result.data.name).toBe('Jane');
     expect(result.data.email).toBe('jane@x.com');

@@ -76,7 +76,7 @@ describeMaybe('Auth e2e', () => {
       expect(res.headers['set-cookie']).toBeDefined();
     });
 
-    it('rejects admin role on sign-up', async () => {
+    it('strips role on sign-up: "admin" is never honoured', async () => {
       const res = await request(server)
         .post('/api/auth/sign-up/email')
         .send({
@@ -85,10 +85,12 @@ describeMaybe('Auth e2e', () => {
           password,
           role: 'admin',
         });
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBe(200);
+      const body = res.body as SignUpResponse;
+      expect(body.user.role).toBe('user');
     });
 
-    it('rejects doctor role on sign-up', async () => {
+    it('strips role on sign-up: "doctor" is never honoured', async () => {
       const res = await request(server)
         .post('/api/auth/sign-up/email')
         .send({
@@ -97,7 +99,9 @@ describeMaybe('Auth e2e', () => {
           password,
           role: 'doctor',
         });
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBe(200);
+      const body = res.body as SignUpResponse;
+      expect(body.user.role).toBe('user');
     });
 
     it('rejects duplicate email', async () => {

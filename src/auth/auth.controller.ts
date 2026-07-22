@@ -153,9 +153,18 @@ export class AuthController {
       });
     }
 
-    const baseUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000';
     const callbackURL = body.callbackURL ?? '/';
-    const url = `${baseUrl}/api/auth/sign-in/social?provider=${body.provider}&callbackURL=${encodeURIComponent(callbackURL)}&linkAccount=${user.id}`;
+
+    const result = await this.authService.api.linkSocialAccount({
+      body: { provider: body.provider, callbackURL },
+    } as never);
+    const url = (result as { url?: string }).url;
+    if (!url) {
+      throw new UnprocessableEntityException({
+        message: 'Could not start the social-link flow',
+        error: 'link_social_failed',
+      });
+    }
 
     return { url };
   }

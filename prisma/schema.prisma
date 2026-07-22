@@ -28,6 +28,7 @@ model User {
 
   sessions Session[]
   accounts Account[]
+  appointments Appointment[]
 
   @@map("user")
 }
@@ -118,9 +119,70 @@ model Doctor {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  slots        DoctorSlot[]
+  appointments Appointment[]
 
   @@index([status])
   @@index([categoryId])
   @@map("doctor")
+}
+
+// DoctorSlot is a bookable time window attached to a doctor
+// (feature 006-appointments-booking). Lifecycle:
+//   AVAILABLE -> BOOKED (patient booking, atomic with appointment create)
+//   AVAILABLE -> BLOCKED (admin block, or PATCH status=BLOCKED)
+//   BOOKED -> AVAILABLE (appointment cancellation, atomic with the
+//     appointment update)
+// One slot can result in at most one appointment (enforced by the
+// UNIQUE constraint on Appointment.slotId).
+model DoctorSlot {
+  id        String   @id @default(cuid())
+  doctorId  String
+  startsAt  DateTime
+  endsAt    DateTime
+  status    String   @default("AVAILABLE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctor      Doctor       @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  appointment Appointment?
+
+  @@index([doctorId, startsAt])
+  @@index([status])
+  @@map("doctor_slot")
+}
+
+// Appointment is a patient's claim on a doctor slot. Lifecycle:
+//   PENDING (on booking) -> CONFIRMED (admin confirms)
+//   PENDING -> CANCELLED (patient or admin cancels)
+//   CONFIRMED -> CANCELLED (patient <= 24h cutoff, or admin any time)
+//   CONFIRMED -> COMPLETED (admin completes, requires scheduledAt in
+//     the past)
+// Terminal states: COMPLETED and CANCELLED are immutable.
+// UNIQUE on slotId enforces 1:1 with the slot at the DB level; the
+// application's prisma.$transaction with a conditional updateMany is
+// the application-level concurrency guard.
+model Appointment {
+  id           String    @id @default(cuid())
+  userId       String
+  doctorId     String
+  slotId       String    @unique
+  scheduledAt  DateTime
+  status       String    @default("PENDING")
+  patientNotes String?
+  adminNotes   String?
+  cancelledAt  DateTime?
+  cancelledBy  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  doctor Doctor     @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  slot   DoctorSlot @relation(fields: [slotId], references: [id], onDelete: Restrict)
+
+  @@index([userId, scheduledAt])
+  @@index([doctorId, scheduledAt])
+  @@index([status])
+  @@map("appointment")
 }
