@@ -79,4 +79,13 @@ export class AuthService {
     }
     return { provider, unlinkedAt: new Date() };
   }
+
+  async isDatabaseHealthy(): Promise<boolean> {
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }

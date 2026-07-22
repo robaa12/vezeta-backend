@@ -64,9 +64,9 @@ USER nestjs
 
 EXPOSE 3000
 
-# Healthcheck hits the /api/health endpoint
+# Healthcheck hits the /api/health endpoint — PORT env var must match
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1
+  CMD wget -qO- "http://127.0.0.1:${PORT:-3000}/api/health" || exit 1
 
 ENTRYPOINT ["dumb-init", "/usr/local/bin/entrypoint.sh"]
 CMD ["node", "dist/src/main.js"]

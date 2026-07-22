@@ -1,12 +1,14 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { DoctorsModule } from './doctors/doctors.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
+import { DoctorServicesModule } from './doctor-services/doctor-services.module.js';
 import { AppointmentsModule } from './appointments/appointments.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
@@ -18,9 +20,6 @@ import { EmailModule } from './common/email/email.module.js';
 @Module({
   imports: [
     EventEmitterModule.forRoot({
-      // Listeners dispatch emails synchronously inside the request
-      // by default. Set `wildcard: false` for a small performance
-      // bump since we never use wildcard subscriptions.
       wildcard: false,
     }),
     ScheduleModule.forRoot(),
@@ -37,10 +36,17 @@ import { EmailModule } from './common/email/email.module.js';
     AdminModule,
     DoctorsModule,
     CategoriesModule,
+    DoctorServicesModule,
     AppointmentsModule,
     ReviewsModule,
     NotificationsModule,
     MedicalRecordsModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule implements NestModule {

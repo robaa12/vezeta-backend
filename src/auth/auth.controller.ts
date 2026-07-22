@@ -99,6 +99,38 @@ export class AuthController {
     return { status: 'ok', timestamp: new Date().toISOString() };
   }
 
+  @Get('health/ready')
+  @AllowAnonymous()
+  @ApiOperation({
+    summary: 'Readiness probe',
+    description: 'Returns 200 only if the database connection is alive.',
+  })
+  @ApiOkResponse({
+    description: 'Service is ready.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'ready' },
+        timestamp: { type: 'string', format: 'date-time' },
+        database: { type: 'string', example: 'connected' },
+      },
+    },
+  })
+  @HttpCode(200)
+  async healthReady(): Promise<{
+    status: string;
+    timestamp: string;
+    database: string;
+  }> {
+    const dbOk = await this.authService.isDatabaseHealthy();
+    const dbStatus = dbOk ? 'connected' : 'unavailable';
+    return {
+      status: dbOk ? 'ready' : 'degraded',
+      timestamp: new Date().toISOString(),
+      database: dbStatus,
+    };
+  }
+
   @Post('auth/link-social')
   @ApiOperation({
     summary: 'Initiate linking a social provider to the current account',

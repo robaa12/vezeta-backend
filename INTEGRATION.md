@@ -279,11 +279,12 @@ When exceeded: `429` with `Retry-After` header. The frontend should back off and
 
 ## 10. Domain reference
 
-### 10.1 `auth` — `/api/me`, `/api/health`, `/api/auth/*`
+### 10.1 `auth` — `/api/me`, `/api/health`, `/api/health/ready`, `/api/auth/*`
 
 See [section 4](#4-authentication-flow) above for the full flow. The custom routes are:
 - `GET /api/me` — current session user
-- `GET /api/health` — liveness probe
+- `GET /api/health` — liveness probe (HTTP server alive, no DB check)
+- `GET /api/health/ready` — readiness probe (checks database connectivity)
 - `POST /api/auth/link-social` — start linking Google/Facebook to current account
 - `DELETE /api/auth/social-accounts/:provider` — unlink
 

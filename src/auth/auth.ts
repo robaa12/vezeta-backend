@@ -61,7 +61,9 @@ export const createAuth = (
     baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
     trustedOrigins: [
       process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
-      'http://localhost:3000',
+      ...(process.env.NODE_ENV !== 'production'
+        ? ['http://localhost:3000']
+        : []),
     ],
     secret: resolveAuthSecret(),
     database: prismaAdapter(prismaService as unknown as PrismaClient, {
