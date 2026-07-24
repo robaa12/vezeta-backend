@@ -36,7 +36,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-vezeta}:${POSTGRES_PASSWORD:-change-me-in-production}@postgres:5432/${POSTGRES_DB:-vezeta_auth}?schema=public
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
-      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN must be set}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       RUN_SEED: ${RUN_SEED:-false}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@vezeta.local}

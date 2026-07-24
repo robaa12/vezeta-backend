@@ -17,7 +17,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund
 
 # Copy sources and prisma config
-COPY tsconfig.json tsconfig.build.json nest-cli.json prisma.config.ts ./
+COPY tsconfig.json tsconfig.build.json tsconfig.build.prod.json nest-cli.json prisma.config.ts ./
 COPY prisma ./prisma
 COPY src ./src
 
