@@ -8,8 +8,11 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
+  Res,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiConflictResponse,
   ApiCookieAuth,
@@ -129,6 +132,65 @@ export class AuthController {
       timestamp: new Date().toISOString(),
       database: dbStatus,
     };
+  }
+
+  @Get('oauth/:provider')
+  @AllowAnonymous()
+  @ApiOperation({
+    summary: 'Initiate social OAuth login (browser-friendly GET redirect)',
+    description:
+      'Initiates Google or Facebook OAuth login and redirects the browser to the provider. Use this endpoint as a direct link or button: `<a href="/api/oauth/google?callbackURL=/dashboard">Sign in with Google</a>`. The endpoint internally calls Better Auth to generate the state cookie, then redirects with that cookie attached so the callback succeeds.',
+  })
+  @ApiOkResponse({ description: 'Redirects to OAuth provider.' })
+  @ApiNotFoundResponse({ description: 'Unknown or unconfigured provider.' })
+  async oauthInitiate(
+    @Param('provider') provider: string,
+    @Query('callbackURL') callbackURL: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (provider !== 'google' && provider !== 'facebook') {
+      throw new NotFoundException('Unknown provider');
+    }
+
+    // Self-fetch Better Auth's POST endpoint to generate the state cookie
+    // and obtain the OAuth provider URL. We must do this on the same host
+    // (loopback) because the state cookie is set as domain-scoped and
+    // the redirect_uri in the OAuth URL points to this same host.
+    const baseURL =
+      process.env.BETTER_AUTH_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+    const signInUrl = `${baseURL}/api/auth/sign-in/social`;
+
+    const betterAuthResponse = await fetch(signInUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider,
+        callbackURL: callbackURL ?? '/',
+        disableRedirect: true,
+      }),
+    });
+
+    if (!betterAuthResponse.ok) {
+      throw new NotFoundException('Provider not configured');
+    }
+
+    const data = (await betterAuthResponse.json()) as { url?: string };
+    const oauthUrl = data.url;
+    if (!oauthUrl) {
+      throw new NotFoundException('Provider not configured');
+    }
+
+    // Forward all Set-Cookie headers from Better Auth's response onto the
+    // outgoing 302 redirect. The browser must persist the state cookie
+    // before following the redirect, otherwise the callback fails with
+    // state_mismatch.
+    const setCookies =
+      betterAuthResponse.headers.getSetCookie?.() ?? [];
+    for (const cookie of setCookies) {
+      res.append('Set-Cookie', cookie);
+    }
+
+    res.status(302).setHeader('Location', oauthUrl).end();
   }
 
   @Post('auth/link-social')

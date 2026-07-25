@@ -4,6 +4,246 @@ import type { OpenAPIObject } from '@nestjs/swagger';
 
 export const OPENAPI_VERSION = '0.0.1';
 
+const betterAuthPaths: OpenAPIObject['paths'] = {
+  '/api/auth/sign-up/email': {
+    post: {
+      tags: ['auth'],
+      summary: 'Sign up with email and password',
+      description: 'Creates a new user account and sends an OTP email for verification. Auto-signs in the user on success.',
+      operationId: 'signUpEmail',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['email', 'password', 'name'],
+              properties: {
+                email: { type: 'string', format: 'email', example: 'user@example.com' },
+                password: { type: 'string', format: 'password', minLength: 8, example: 'MyStr0ngP@ss' },
+                name: { type: 'string', example: 'John Doe' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Sign-up successful. Session cookie set.' },
+        '400': { description: 'Validation error (e.g. password too short, email already taken).' },
+        '422': { description: 'Invalid input.' },
+      },
+    },
+  },
+  '/api/auth/sign-in/email': {
+    post: {
+      tags: ['auth'],
+      summary: 'Sign in with email and password',
+      description: 'Authenticates a user by email and password. Sets a session cookie on success.',
+      operationId: 'signInEmail',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['email', 'password'],
+              properties: {
+                email: { type: 'string', format: 'email', example: 'user@example.com' },
+                password: { type: 'string', format: 'password', example: 'MyStr0ngP@ss' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Sign-in successful. Session cookie set.' },
+        '401': { description: 'Invalid credentials.' },
+      },
+    },
+  },
+  '/api/auth/sign-out': {
+    post: {
+      tags: ['auth'],
+      summary: 'Sign out',
+      description: 'Invalidates the current session and clears the session cookie.',
+      operationId: 'signOut',
+      responses: {
+        '200': { description: 'Signed out successfully.' },
+      },
+    },
+  },
+  '/api/auth/forget-password': {
+    post: {
+      tags: ['auth'],
+      summary: 'Request password reset',
+      description: 'Sends a password reset OTP to the user\'s email.',
+      operationId: 'forgetPassword',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['email'],
+              properties: {
+                email: { type: 'string', format: 'email', example: 'user@example.com' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Password reset email sent (if account exists).' },
+      },
+    },
+  },
+  '/api/auth/reset-password': {
+    post: {
+      tags: ['auth'],
+      summary: 'Reset password with OTP',
+      description: 'Resets the user password using the OTP sent via email.',
+      operationId: 'resetPassword',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['email', 'otp', 'newPassword'],
+              properties: {
+                email: { type: 'string', format: 'email', example: 'user@example.com' },
+                otp: { type: 'string', description: '6-digit code from the forget-password email.', example: '123456' },
+                newPassword: { type: 'string', format: 'password', minLength: 8, example: 'NewStr0ngP@ss' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Password reset successfully.' },
+        '400': { description: 'Invalid or expired OTP.' },
+      },
+    },
+  },
+  '/api/auth/email-otp/send-verification-otp': {
+    post: {
+      tags: ['auth'],
+      summary: 'Send email verification OTP',
+      description: 'Sends a 6-digit OTP to the user\'s email for verification. Used for sign-in, email verification, and other flows.',
+      operationId: 'sendVerificationOtp',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['email', 'type'],
+              properties: {
+                email: { type: 'string', format: 'email', example: 'user@example.com' },
+                type: { type: 'string', enum: ['sign-in', 'email-verification', 'forget-password', 'change-email'], example: 'sign-in' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'OTP sent to email.' },
+      },
+    },
+  },
+  '/api/auth/email-otp/verify-email': {
+    post: {
+      tags: ['auth'],
+      summary: 'Verify email with OTP',
+      description: 'Verifies the email address using the OTP code. Completes sign-in or email verification flow.',
+      operationId: 'verifyEmailOtp',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['email', 'otp'],
+              properties: {
+                email: { type: 'string', format: 'email', example: 'user@example.com' },
+                otp: { type: 'string', description: '6-digit code from the email.', example: '123456' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Email verified. Sets session cookie for sign-in flow.' },
+        '400': { description: 'Invalid or expired OTP.' },
+      },
+    },
+  },
+  '/api/auth/session': {
+    get: {
+      tags: ['auth'],
+      summary: 'Get current session',
+      description: 'Returns the current authenticated session data, including user info.',
+      operationId: 'getSession',
+      responses: {
+        '200': { description: 'Current session.' },
+        '401': { description: 'No active session.' },
+      },
+    },
+  },
+  '/api/oauth/{provider}': {
+    get: {
+      tags: ['auth'],
+      summary: 'Initiate social OAuth login (GET redirect)',
+      description:
+        'Redirects the browser to Google or Facebook to start the OAuth flow. The state cookie is set on the 302 response so the callback succeeds. Frontend usage: `<a href="/api/oauth/google?callbackURL=/dashboard">Sign in with Google</a>`.',
+      operationId: 'oauthInitiate',
+      parameters: [
+        {
+          name: 'provider',
+          in: 'path',
+          required: true,
+          schema: { type: 'string', enum: ['google', 'facebook'] },
+          example: 'google',
+        },
+        {
+          name: 'callbackURL',
+          in: 'query',
+          required: false,
+          schema: { type: 'string' },
+          example: '/dashboard',
+          description: 'Frontend route to redirect to after successful sign-in. Defaults to `/`.',
+        },
+      ],
+      responses: {
+        '302': {
+          description: 'Redirect to OAuth provider with the state cookie set.',
+          headers: {
+            Location: {
+              description: 'URL of the OAuth provider (Google or Facebook).',
+              schema: { type: 'string', format: 'uri' },
+            },
+            'Set-Cookie': {
+              description: 'Sets the `vezeta.state` cookie required for the callback.',
+              schema: { type: 'string' },
+            },
+          },
+        },
+        '404': { description: 'Unknown or unconfigured provider.' },
+      },
+    },
+  },
+};
+
+export function addBetterAuthPaths(document: OpenAPIObject): OpenAPIObject {
+  return {
+    ...document,
+    paths: {
+      ...document.paths,
+      ...betterAuthPaths,
+    },
+  };
+}
+
 export function buildSwaggerConfig(): Omit<
   OpenAPIObject,
   'paths' | 'components'
@@ -20,7 +260,7 @@ export function buildSwaggerConfig(): Omit<
         'After `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.',
         'The frontend must send the cookie on every subsequent request (use `credentials: "include"` in fetch / `withCredentials: true` in axios).',
         '',
-        'For the social OAuth flow, the browser hits `GET /api/auth/oauth/start?provider=google` (or `facebook`) — a Better Auth standard route — and follows the 302 redirect.',
+        'For the social OAuth flow, navigate the browser to `GET /api/oauth/google?callbackURL=/dashboard` (or `facebook`). The state cookie is set on the 302 response, so the callback succeeds without a cookie race condition. Use it as a direct link: `<a href="/api/oauth/google?callbackURL=/dashboard">Sign in with Google</a>`.',
         '',
         'Use the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.',
         '',
@@ -60,5 +300,6 @@ export function buildSwaggerConfig(): Omit<
 }
 
 export function getOpenApiDocument(app: INestApplication): OpenAPIObject {
-  return SwaggerModule.createDocument(app, buildSwaggerConfig());
+  const document = SwaggerModule.createDocument(app, buildSwaggerConfig());
+  return addBetterAuthPaths(document);
 }

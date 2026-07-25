@@ -38,13 +38,33 @@ services:
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID:-}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET:-}
       RUN_SEED: ${RUN_SEED:-false}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@vezeta.local}
       SEED_ADMIN_PHONE: ${SEED_ADMIN_PHONE:-+201000000000}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe123!}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Super Admin}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-resend}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Vezeeta <onboarding@resend.dev>}
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
     ports:
       - "${PORT:-3000}:3000"
+    networks:
+      - vezeeta-net
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: vezeeta-mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_UI_PORT:-8025}:8025"
     networks:
       - vezeeta-net
 
