@@ -191,7 +191,7 @@ export const createAuth = (
         sendVerificationOTP: async (data) => {
           await emailService.sendOtp(data);
         },
-        overrideDefaultEmailVerification: true,
+        sendVerificationOnSignUp: true,
       }),
       phoneNumber({
         otpLength: OTP_LENGTH,
