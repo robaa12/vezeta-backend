@@ -46,6 +46,31 @@ const sendPhonePasswordResetOTP = (data: {
 
 const INSECURE_DEV_SECRET = 'dev-only-insecure-secret-change-in-production';
 
+// Origins the Better Auth routes (/api/auth/*) will accept requests from.
+// In production BETTER_AUTH_TRUSTED_ORIGINS MUST be set to the real
+// frontend origin(s) (comma-separated). In dev we default to the common
+// Vite ports so `npm run dev` works out of the box.
+const DEV_TRUSTED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
+
+function resolveTrustedOrigins(): string[] {
+  const baseURL = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000';
+  const explicit = (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  const set = new Set<string>([baseURL]);
+  if (process.env.NODE_ENV !== 'production') {
+    for (const origin of DEV_TRUSTED_ORIGINS) set.add(origin);
+  }
+  for (const origin of explicit) set.add(origin);
+  return Array.from(set);
+}
+
 function resolveAuthSecret(): string {
   const secret = process.env.BETTER_AUTH_SECRET;
   if (!secret) {
@@ -67,12 +92,7 @@ export const createAuth = (
 ): ReturnType<typeof betterAuth<Record<string, unknown>>> => {
   return betterAuth({
     baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
-    trustedOrigins: [
-      process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
-      ...(process.env.NODE_ENV !== 'production'
-        ? ['http://localhost:3000']
-        : []),
-    ],
+    trustedOrigins: resolveTrustedOrigins(),
     secret: resolveAuthSecret(),
     database: prismaAdapter(prismaService as unknown as PrismaClient, {
       provider: 'postgresql',
@@ -142,6 +162,7 @@ export const createAuth = (
         clientId: process.env.GOOGLE_CLIENT_ID ?? '',
         clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
         scope: ['openid', 'email', 'profile'],
+        prompt: 'select_account',
       },
       facebook: {
         clientId: process.env.FACEBOOK_CLIENT_ID ?? '',

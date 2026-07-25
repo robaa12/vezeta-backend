@@ -29,14 +29,15 @@ export interface PublicDoctorRecord {
 
 /**
  * List-view DTO for the public doctor catalog. Omits `bio` (up to
- * 2 KB per doctor — 40 KB per page at the default page size of 20) and
- * `imageUrl` (detail-only). The detail DTO is `PublicDoctorRecord`;
- * fetch the full record via `GET /api/doctors/:id`.
+ * 2 KB per doctor — 40 KB per page at the default page size of 20).
+ * Includes `imageUrl` so the frontend can render doctor photos on
+ * list cards without N+1 detail fetches.
  */
 export interface PublicDoctorListItem {
   id: string;
   name: string;
   category: PublicCategoryRef;
+  imageUrl: string | null;
   status: 'ACTIVE' | 'DEACTIVATED';
 }
 
@@ -87,6 +88,7 @@ export class DoctorsService {
         select: {
           id: true,
           name: true,
+          imageUrl: true,
           status: true,
           category: { select: { id: true, name: true } },
         },
@@ -127,12 +129,14 @@ export class DoctorsService {
   private toListItem(d: {
     id: string;
     name: string;
+    imageUrl: string | null;
     status: string;
     category: { id: string; name: string };
   }): PublicDoctorListItem {
     return {
       id: d.id,
       name: d.name,
+      imageUrl: d.imageUrl,
       status: d.status as PublicDoctorListItem['status'],
       category: {
         id: d.category.id,

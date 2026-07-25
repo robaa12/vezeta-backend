@@ -50,7 +50,7 @@ services:
       MAIL_PROVIDER: ${MAIL_PROVIDER:-resend}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-Vezeeta <onboarding@resend.dev>}
-      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_SECURE: ${SMTP_SECURE:-false}
     ports:

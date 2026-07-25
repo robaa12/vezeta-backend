@@ -11,7 +11,7 @@ services:
       BETTER_AUTH_URL: http://localhost:3000
       SWAGGER_ENABLED: "true"
       MAIL_PROVIDER: smtp
-      SMTP_HOST: host.docker.internal
+      SMTP_HOST: mailhog
       SMTP_PORT: "1025"
       SMTP_SECURE: "false"
       RUN_SEED: "true"
