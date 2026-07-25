@@ -245,6 +245,148 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
       },
     },
   },
+  '/api/auth/phone-number/send-otp': {
+    post: {
+      tags: ['auth'],
+      summary: 'Send phone-number OTP',
+      description:
+        'Sends a 6-digit OTP via SMS to the supplied phone number (E.164, e.g. `+201234567890`). Used to add or change a phone number on the account, and to start phone-based password reset. Requires an active session for the add/change flow; the forget-password variant does not. In dev the OTP is logged to the server console.',
+      operationId: 'phoneNumberSendOtp',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['phoneNumber'],
+              properties: {
+                phoneNumber: {
+                  type: 'string',
+                  description:
+                    'Phone number in E.164 format. Will be normalized server-side.',
+                  example: '+201234567890',
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'OTP sent.' },
+        '400': { description: 'Invalid phone number format.' },
+        '401': { description: 'No active session.' },
+      },
+    },
+  },
+  '/api/auth/phone-number/verify': {
+    post: {
+      tags: ['auth'],
+      summary: 'Verify phone-number OTP',
+      description:
+        'Verifies the OTP code and sets the user `phoneNumber` + `phoneNumberVerified: true`. Requires an active session. If the user already has a phone number attached, the new one replaces it only after successful verification.',
+      operationId: 'phoneNumberVerify',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['phoneNumber', 'code'],
+              properties: {
+                phoneNumber: {
+                  type: 'string',
+                  example: '+201234567890',
+                },
+                code: {
+                  type: 'string',
+                  description: '6-digit code from the SMS.',
+                  example: '123456',
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': {
+          description:
+            'Phone number verified. `phoneNumber` and `phoneNumberVerified: true` are now set on the user.',
+        },
+        '400': { description: 'Invalid or expired OTP.' },
+        '401': { description: 'No active session.' },
+      },
+    },
+  },
+  '/api/auth/phone-number/forget-password': {
+    post: {
+      tags: ['auth'],
+      summary: 'Start phone-based password reset',
+      description:
+        'Sends a 6-digit OTP via SMS to the supplied phone number. The user must already have a verified phone number on the account. Use `reset-password` with the code to set a new password.',
+      operationId: 'phoneNumberForgetPassword',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['phoneNumber'],
+              properties: {
+                phoneNumber: {
+                  type: 'string',
+                  example: '+201234567890',
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'OTP sent (if the phone number is on file).' },
+      },
+    },
+  },
+  '/api/auth/phone-number/reset-password': {
+    post: {
+      tags: ['auth'],
+      summary: 'Reset password via phone OTP',
+      description:
+        'Resets the password for the account that owns the phone number. Requires the OTP sent by `forget-password`.',
+      operationId: 'phoneNumberResetPassword',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['phoneNumber', 'otp', 'newPassword'],
+              properties: {
+                phoneNumber: {
+                  type: 'string',
+                  example: '+201234567890',
+                },
+                otp: {
+                  type: 'string',
+                  description: '6-digit code from the SMS.',
+                  example: '123456',
+                },
+                newPassword: {
+                  type: 'string',
+                  format: 'password',
+                  minLength: 8,
+                  example: 'NewStr0ngP@ss',
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Password reset. Session cookie set.' },
+        '400': { description: 'Invalid or expired OTP.' },
+      },
+    },
+  },
   '/api/auth/session': {
     get: {
       tags: ['auth'],

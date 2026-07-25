@@ -99,6 +99,14 @@ POST /api/auth/phone-number/reset-password      { "phoneNumber": "...", "otp": "
 
 In dev, the OTP is logged to the console (`[phone-otp] …`).
 
+**Where does `phoneNumber` come from on the user record?**
+
+- **OAuth (Google / Facebook) sign-in** — the OAuth provider does not return a phone number, so `phoneNumber` is `null` and `phoneNumberVerified` is `false` on the user. The frontend must collect a phone number and run the user through the `send-otp` → `verify` flow above to populate it.
+- **Email sign-up** — `phoneNumber` is **optional** in the sign-up body (`{ email, password, name, phoneNumber? }`). If provided, it is stored but left unverified (`phoneNumberVerified: false`). The frontend should still run the `send-otp` → `verify` flow afterwards to flip the flag.
+- **`sign-in/phone-number`** — sets and verifies the phone number as part of the credential exchange (see [§4.2](#42-sign-in-with-phone--password)).
+
+`phoneNumber` is unique across users, so reusing a number that's already verified on another account will return `422 unique_phone_number`.
+
 ### 4.5 Social login (Google / Facebook)
 
 Two approaches — pick whichever fits your frontend architecture:

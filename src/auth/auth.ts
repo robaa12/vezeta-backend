@@ -116,7 +116,12 @@ export const createAuth = (
         phoneNumber: {
           type: 'string',
           required: false,
-          input: false,
+          input: true,
+          // `input: true` allows the frontend to seed phoneNumber on
+          // sign-up or via /api/auth/update-user. The phoneNumber
+          // plugin's verify flow (send-otp + verify) is the only
+          // path that flips phoneNumberVerified to true; setting
+          // phoneNumber alone leaves it false.
         },
         phoneNumberVerified: {
           type: 'boolean',
