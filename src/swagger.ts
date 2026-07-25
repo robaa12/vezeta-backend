@@ -9,7 +9,8 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
     post: {
       tags: ['auth'],
       summary: 'Sign up with email and password',
-      description: 'Creates a new user account and sends an OTP email for verification. Auto-signs in the user on success.',
+      description:
+        'Creates a new user account and sends an OTP email for verification. Auto-signs in the user on success.',
       operationId: 'signUpEmail',
       requestBody: {
         required: true,
@@ -19,8 +20,17 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
               type: 'object',
               required: ['email', 'password', 'name'],
               properties: {
-                email: { type: 'string', format: 'email', example: 'user@example.com' },
-                password: { type: 'string', format: 'password', minLength: 8, example: 'MyStr0ngP@ss' },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                  example: 'user@example.com',
+                },
+                password: {
+                  type: 'string',
+                  format: 'password',
+                  minLength: 8,
+                  example: 'MyStr0ngP@ss',
+                },
                 name: { type: 'string', example: 'John Doe' },
               },
             },
@@ -29,7 +39,10 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
       },
       responses: {
         '200': { description: 'Sign-up successful. Session cookie set.' },
-        '400': { description: 'Validation error (e.g. password too short, email already taken).' },
+        '400': {
+          description:
+            'Validation error (e.g. password too short, email already taken).',
+        },
         '422': { description: 'Invalid input.' },
       },
     },
@@ -38,7 +51,8 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
     post: {
       tags: ['auth'],
       summary: 'Sign in with email and password',
-      description: 'Authenticates a user by email and password. Sets a session cookie on success.',
+      description:
+        'Authenticates a user by email and password. Sets a session cookie on success.',
       operationId: 'signInEmail',
       requestBody: {
         required: true,
@@ -48,8 +62,16 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
               type: 'object',
               required: ['email', 'password'],
               properties: {
-                email: { type: 'string', format: 'email', example: 'user@example.com' },
-                password: { type: 'string', format: 'password', example: 'MyStr0ngP@ss' },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                  example: 'user@example.com',
+                },
+                password: {
+                  type: 'string',
+                  format: 'password',
+                  example: 'MyStr0ngP@ss',
+                },
               },
             },
           },
@@ -65,7 +87,8 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
     post: {
       tags: ['auth'],
       summary: 'Sign out',
-      description: 'Invalidates the current session and clears the session cookie.',
+      description:
+        'Invalidates the current session and clears the session cookie.',
       operationId: 'signOut',
       responses: {
         '200': { description: 'Signed out successfully.' },
@@ -76,7 +99,7 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
     post: {
       tags: ['auth'],
       summary: 'Request password reset',
-      description: 'Sends a password reset OTP to the user\'s email.',
+      description: "Sends a password reset OTP to the user's email.",
       operationId: 'forgetPassword',
       requestBody: {
         required: true,
@@ -86,14 +109,20 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
               type: 'object',
               required: ['email'],
               properties: {
-                email: { type: 'string', format: 'email', example: 'user@example.com' },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                  example: 'user@example.com',
+                },
               },
             },
           },
         },
       },
       responses: {
-        '200': { description: 'Password reset email sent (if account exists).' },
+        '200': {
+          description: 'Password reset email sent (if account exists).',
+        },
       },
     },
   },
@@ -111,9 +140,22 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
               type: 'object',
               required: ['email', 'otp', 'newPassword'],
               properties: {
-                email: { type: 'string', format: 'email', example: 'user@example.com' },
-                otp: { type: 'string', description: '6-digit code from the forget-password email.', example: '123456' },
-                newPassword: { type: 'string', format: 'password', minLength: 8, example: 'NewStr0ngP@ss' },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                  example: 'user@example.com',
+                },
+                otp: {
+                  type: 'string',
+                  description: '6-digit code from the forget-password email.',
+                  example: '123456',
+                },
+                newPassword: {
+                  type: 'string',
+                  format: 'password',
+                  minLength: 8,
+                  example: 'NewStr0ngP@ss',
+                },
               },
             },
           },
@@ -129,7 +171,8 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
     post: {
       tags: ['auth'],
       summary: 'Send email verification OTP',
-      description: 'Sends a 6-digit OTP to the user\'s email for verification. Used for sign-in, email verification, and other flows.',
+      description:
+        "Sends a 6-digit OTP to the user's email for verification. Used for sign-in, email verification, and other flows.",
       operationId: 'sendVerificationOtp',
       requestBody: {
         required: true,
@@ -139,8 +182,21 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
               type: 'object',
               required: ['email', 'type'],
               properties: {
-                email: { type: 'string', format: 'email', example: 'user@example.com' },
-                type: { type: 'string', enum: ['sign-in', 'email-verification', 'forget-password', 'change-email'], example: 'sign-in' },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                  example: 'user@example.com',
+                },
+                type: {
+                  type: 'string',
+                  enum: [
+                    'sign-in',
+                    'email-verification',
+                    'forget-password',
+                    'change-email',
+                  ],
+                  example: 'sign-in',
+                },
               },
             },
           },
@@ -155,7 +211,8 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
     post: {
       tags: ['auth'],
       summary: 'Verify email with OTP',
-      description: 'Verifies the email address using the OTP code. Completes sign-in or email verification flow.',
+      description:
+        'Verifies the email address using the OTP code. Completes sign-in or email verification flow.',
       operationId: 'verifyEmailOtp',
       requestBody: {
         required: true,
@@ -165,15 +222,25 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
               type: 'object',
               required: ['email', 'otp'],
               properties: {
-                email: { type: 'string', format: 'email', example: 'user@example.com' },
-                otp: { type: 'string', description: '6-digit code from the email.', example: '123456' },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                  example: 'user@example.com',
+                },
+                otp: {
+                  type: 'string',
+                  description: '6-digit code from the email.',
+                  example: '123456',
+                },
               },
             },
           },
         },
       },
       responses: {
-        '200': { description: 'Email verified. Sets session cookie for sign-in flow.' },
+        '200': {
+          description: 'Email verified. Sets session cookie for sign-in flow.',
+        },
         '400': { description: 'Invalid or expired OTP.' },
       },
     },
@@ -182,7 +249,8 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
     get: {
       tags: ['auth'],
       summary: 'Get current session',
-      description: 'Returns the current authenticated session data, including user info.',
+      description:
+        'Returns the current authenticated session data, including user info.',
       operationId: 'getSession',
       responses: {
         '200': { description: 'Current session.' },
@@ -211,7 +279,8 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
           required: false,
           schema: { type: 'string' },
           example: '/dashboard',
-          description: 'Frontend route to redirect to after successful sign-in. Defaults to `/`.',
+          description:
+            'Frontend route to redirect to after successful sign-in. Defaults to `/`.',
         },
       ],
       responses: {
@@ -223,7 +292,8 @@ const betterAuthPaths: OpenAPIObject['paths'] = {
               schema: { type: 'string', format: 'uri' },
             },
             'Set-Cookie': {
-              description: 'Sets the `vezeta.state` cookie required for the callback.',
+              description:
+                'Sets the `vezeta.state` cookie required for the callback.',
               schema: { type: 'string' },
             },
           },

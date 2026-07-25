@@ -157,7 +157,8 @@ export class AuthController {
     // (loopback) because the state cookie is set as domain-scoped and
     // the redirect_uri in the OAuth URL points to this same host.
     const baseURL =
-      process.env.BETTER_AUTH_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+      process.env.BETTER_AUTH_URL ??
+      `http://localhost:${process.env.PORT ?? 3000}`;
     const signInUrl = `${baseURL}/api/auth/sign-in/social`;
 
     const betterAuthResponse = await fetch(signInUrl, {
@@ -184,8 +185,7 @@ export class AuthController {
     // outgoing 302 redirect. The browser must persist the state cookie
     // before following the redirect, otherwise the callback fails with
     // state_mismatch.
-    const setCookies =
-      betterAuthResponse.headers.getSetCookie?.() ?? [];
+    const setCookies = betterAuthResponse.headers.getSetCookie?.() ?? [];
     for (const cookie of setCookies) {
       res.append('Set-Cookie', cookie);
     }

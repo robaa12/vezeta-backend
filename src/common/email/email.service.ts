@@ -176,35 +176,35 @@ export class EmailService {
   <title>${title}</title>
 </head>
 <body style="margin:0;padding:0;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;background:#f2f4f6;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f6;padding:48px 16px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f6;padding:40px 16px;">
     <tr>
       <td align="center">
         <!-- Card -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:20px;border:1px solid #bacac3;overflow:hidden;box-shadow:0 1px 4px 0 rgba(0,0,0,0.06);">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:16px;border:1px solid #dbe6e1;overflow:hidden;box-shadow:0 1px 3px 0 rgba(0,0,0,0.04);">
           <!-- Header -->
           <tr>
-            <td style="padding:44px 40px 0 40px;text-align:center;">
-              <div style="display:inline-block;width:52px;height:52px;background:linear-gradient(135deg,#006b56,#00594a);border-radius:16px;line-height:52px;font-size:26px;text-align:center;box-shadow:0 8px 20px rgba(0,107,86,0.22);">
+            <td style="padding:32px 36px 0 36px;text-align:center;">
+              <div style="display:inline-block;width:40px;height:40px;background:#006b56;border-radius:12px;line-height:40px;font-size:22px;text-align:center;">
                 &#x1F3E5;
               </div>
-              <div style="margin-top:16px;font-size:13px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:#6b7a74;">
+              <div style="margin-top:12px;font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:#6b7a74;">
                 Vezeeta
               </div>
             </td>
           </tr>
           <!-- Body -->
           <tr>
-            <td style="padding:34px 40px 42px 40px;">
+            <td style="padding:28px 36px 36px 36px;">
               ${body}
             </td>
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="padding:0 40px 28px 40px;border-top:1px solid #bacac3;">
-              <p style="margin:24px 0 0 0;font-size:12px;line-height:1.6;color:#6b7a74;text-align:center;">
+            <td style="padding:0 36px 24px 36px;border-top:1px solid #dbe6e1;">
+              <p style="margin:20px 0 0 0;font-size:11px;line-height:1.6;color:#6b7a74;text-align:center;">
                 &copy; ${yr} Vezeeta. All rights reserved.
               </p>
-              <p style="margin:6px 0 0 0;font-size:12px;line-height:1.6;color:#6b7a74;text-align:center;">
+              <p style="margin:4px 0 0 0;font-size:11px;line-height:1.6;color:#6b7a74;text-align:center;">
                 You received this email because you have a Vezeeta account.<br>
                 If you have questions, contact our support team.
               </p>
@@ -264,43 +264,47 @@ export class EmailService {
 
     const body = `
       <div style="text-align:center;">
-        <h1 style="margin:0 0 10px 0;font-size:22px;line-height:1.3;font-weight:700;color:#191c1e;">${heading}</h1>
-        <p style="margin:0;font-size:15px;line-height:1.6;color:#3b4a44;">${intro}</p>
+        <h1 style="margin:0 0 6px 0;font-size:18px;line-height:1.35;font-weight:600;color:#191c1e;">${heading}</h1>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#3b4a44;">${intro}</p>
       </div>
 
-      <!-- OTP hero pill -->
-      <div style="margin:36px 0 18px 0;text-align:center;">
-        <div role="button" tabindex="0" class="otp-pill" onclick="copyVezeetaOtp('${otp}', this); return false;" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();copyVezeetaOtp('${otp}', this);}" style="display:inline-block;position:relative;background:linear-gradient(135deg,#c9fff0 0%,#ffffff 100%);border:1px solid #bacac3;border-radius:9999px;padding:22px 38px;cursor:pointer;box-shadow:0 0 0 1px rgba(0,107,86,0.06),0 10px 28px rgba(0,107,86,0.10);">
-          <div style="font-family:'SFMono-Regular',Menlo,Consolas,monospace;font-size:32px;font-weight:700;letter-spacing:0.32em;color:#191c1e;text-shadow:0 1px 0 rgba(255,255,255,0.6);">
+      <!-- OTP code -->
+      <div style="margin:28px 0 12px 0;text-align:center;">
+        <div role="button" tabindex="0" class="otp-pill" onclick="copyVezeetaOtp('${otp}', this); return false;" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();copyVezeetaOtp('${otp}', this);}" style="display:inline-block;position:relative;background:#f3f7f5;border:1px solid #dbe6e1;border-radius:12px;padding:16px 26px;cursor:pointer;">
+          <div style="font-family:'SFMono-Regular',Menlo,Consolas,monospace;font-size:26px;font-weight:600;letter-spacing:0.22em;color:#1b2421;">
             ${otp}
           </div>
-          <div class="otp-feedback" aria-live="polite" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#006b56;background:#ffffff;border:1px solid #bacac3;border-radius:9999px;padding:6px 14px;opacity:0;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+          <div class="otp-feedback" aria-live="polite" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#006b56;background:#ffffff;border:1px solid #dbe6e1;border-radius:9999px;padding:4px 10px;opacity:0;pointer-events:none;">
             Copied
           </div>
         </div>
-        <p style="margin:14px 0 0 0;font-size:12px;line-height:1.5;color:#6b7a74;">
+        <p style="margin:10px 0 0 0;font-size:12px;line-height:1.5;color:#6b7a74;">
           Click the code to copy it
         </p>
       </div>
 
       <!-- Copy button -->
       <div style="text-align:center;">
-        <a href="#" role="button" onclick="copyVezeetaOtp('${otp}', this); return false;" style="display:inline-block;background:#006b56;border:1px solid #006b56;border-radius:9999px;padding:12px 28px;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;cursor:pointer;box-shadow:0 4px 12px rgba(0,107,86,0.25);">
+        <a href="#" role="button" onclick="copyVezeetaOtp('${otp}', this); return false;" style="display:inline-block;background:#ffffff;border:1px solid #bacac3;border-radius:9999px;padding:8px 20px;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:500;color:#006b56;text-decoration:none;cursor:pointer;">
           Copy code
         </a>
       </div>
 
       <!-- Meta -->
-      <div style="text-align:center;margin-top:28px;">
-        <p style="margin:0 0 6px 0;font-size:14px;line-height:1.6;color:#3b4a44;">
+      <div style="text-align:center;margin-top:26px;">
+        <p style="margin:0 0 4px 0;font-size:13px;line-height:1.6;color:#3b4a44;">
           This code expires in <strong style="color:#191c1e;">10 minutes</strong>.
         </p>
-        ${verifyHref ? `
-        <p style="margin:0 0 16px 0;font-size:13px;line-height:1.5;color:#6b7a74;">
-          <a href="${verifyHref}" style="color:#006b56;text-decoration:underline;font-weight:600;">Verify automatically</a>
+        ${
+          verifyHref
+            ? `
+        <p style="margin:0 0 14px 0;font-size:12px;line-height:1.5;color:#6b7a74;">
+          <a href="${verifyHref}" style="color:#006b56;text-decoration:underline;font-weight:500;">Verify automatically</a>
         </p>
-        ` : ''}
-        <p style="margin:0;font-size:12px;line-height:1.6;color:#6b7a74;">
+        `
+            : ''
+        }
+        <p style="margin:0;font-size:11px;line-height:1.6;color:#6b7a74;">
           If you didn&#39;t request this, you can safely ignore this email.<br>
           Never share this code. Vezeeta staff will never ask for it.
         </p>
@@ -324,12 +328,12 @@ export class EmailService {
 
     const body = `
       <div style="text-align:center;">
-        <h1 style="margin:0 0 12px 0;font-size:20px;line-height:1.3;font-weight:700;color:#191c1e;">${params.subject}</h1>
+        <h1 style="margin:0 0 10px 0;font-size:18px;line-height:1.35;font-weight:600;color:#191c1e;">${params.subject}</h1>
       </div>
-      <div style="background:#f2f4f6;border-radius:10px;border:1px solid #bacac3;padding:20px 24px;margin-bottom:8px;">
+      <div style="background:#f3f7f5;border-radius:12px;border:1px solid #dbe6e1;padding:18px 22px;margin:20px 0 8px 0;">
         <p style="margin:0;font-size:14px;line-height:1.65;color:#3b4a44;word-break:break-word;">${safe}</p>
       </div>
-      <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#6b7a74;text-align:center;">
+      <p style="margin:14px 0 0 0;font-size:11px;line-height:1.6;color:#6b7a74;text-align:center;">
         This is an automated notification from your Vezeeta account.
       </p>`;
 
