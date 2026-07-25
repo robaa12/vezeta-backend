@@ -15,6 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBadRequestResponse,
+  ApiBody,
   ApiConflictResponse,
   ApiConsumes,
   ApiCookieAuth,
@@ -94,6 +95,76 @@ const DOCTOR_WRAPPED_SCHEMA = {
   required: ['doctor'],
 };
 
+// Multipart request-body schemas. The @nestjs/swagger plugin derives
+// the request body shape from the DTO class, which doesn't have the
+// `image` file field (multer parses it via @UploadedFile before the
+// DTO is bound). Use an explicit @ApiBody schema so the generated
+// OpenAPI surface advertises the file upload, including the
+// content-type and size constraints enforced by doctorImageMulterOpts.
+const IMAGE_FIELD_SCHEMA = {
+  type: 'string',
+  format: 'binary',
+  description:
+    'Doctor profile image. Accepted formats: JPEG, PNG, GIF, WebP. Max size: 5 MB.',
+};
+
+const CREATE_DOCTOR_BODY_SCHEMA = {
+  type: 'object',
+  properties: {
+    name: {
+      type: 'string',
+      minLength: 2,
+      maxLength: 120,
+      description: "Doctor's full display name.",
+      example: 'Dr. Jane Smith',
+    },
+    categoryId: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 64,
+      description: 'Id of the ACTIVE category this doctor belongs to.',
+      example: 'seed_cardiology',
+    },
+    bio: {
+      type: 'string',
+      maxLength: 2000,
+      description: 'Short biography / about section.',
+    },
+    image: IMAGE_FIELD_SCHEMA,
+  },
+  required: ['name', 'categoryId'],
+};
+
+const UPDATE_DOCTOR_BODY_SCHEMA = {
+  type: 'object',
+  properties: {
+    name: {
+      type: 'string',
+      minLength: 2,
+      maxLength: 120,
+    },
+    categoryId: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 64,
+      description: 'Id of an ACTIVE category to reassign the doctor to.',
+    },
+    bio: {
+      type: 'string',
+      maxLength: 2000,
+    },
+    status: {
+      type: 'string',
+      enum: ['ACTIVE', 'DEACTIVATED'],
+    },
+    image: {
+      ...IMAGE_FIELD_SCHEMA,
+      description:
+        'New doctor profile image. Accepted formats: JPEG, PNG, GIF, WebP. Max size: 5 MB. If omitted the existing image is kept.',
+    },
+  },
+};
+
 @ApiTags('admin')
 @ApiProduces('application/json')
 @ApiCookieAuth('vezeta.session_token')
@@ -137,11 +208,14 @@ export class AdminController {
   @Post('doctors')
   @ApiOperation({ summary: 'Create a new doctor record' })
   @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: CREATE_DOCTOR_BODY_SCHEMA })
   @ApiCreatedResponse({
     description: 'Doctor created.',
     schema: DOCTOR_WRAPPED_SCHEMA,
   })
-  @ApiBadRequestResponse({ description: 'Validation error.' })
+  @ApiBadRequestResponse({
+    description: 'Validation error or invalid image (wrong type / too large).',
+  })
   @UseInterceptors(FileInterceptor('image', doctorImageMulterOpts))
   createDoctor(
     @Body() body: CreateDoctorDto,
@@ -168,6 +242,7 @@ export class AdminController {
   @Patch('doctors/:id')
   @ApiOperation({ summary: 'Update a doctor (partial)' })
   @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: UPDATE_DOCTOR_BODY_SCHEMA })
   @ApiParam({ name: 'id', description: 'Doctor id' })
   @ApiOkResponse({
     description: 'Doctor updated.',

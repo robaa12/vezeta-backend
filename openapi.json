@@ -512,7 +512,37 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/CreateDoctorDto"
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120,
+                    "description": "Doctor's full display name.",
+                    "example": "Dr. Jane Smith"
+                  },
+                  "categoryId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "Id of the ACTIVE category this doctor belongs to.",
+                    "example": "seed_cardiology"
+                  },
+                  "bio": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Short biography / about section."
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Doctor profile image. Accepted formats: JPEG, PNG, GIF, WebP. Max size: 5 MB."
+                  }
+                },
+                "required": [
+                  "name",
+                  "categoryId"
+                ]
               }
             }
           }
@@ -603,7 +633,7 @@
             }
           },
           "400": {
-            "description": "Validation error."
+            "description": "Validation error or invalid image (wrong type / too large)."
           },
           "401": {
             "description": "No active session."
@@ -760,7 +790,36 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateDoctorDto"
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "categoryId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "Id of an ACTIVE category to reassign the doctor to."
+                  },
+                  "bio": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "DEACTIVATED"
+                    ]
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "New doctor profile image. Accepted formats: JPEG, PNG, GIF, WebP. Max size: 5 MB. If omitted the existing image is kept."
+                  }
+                }
               }
             }
           }
@@ -3745,7 +3804,7 @@
     "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, navigate the browser to `GET /api/oauth/google?callbackURL=/dashboard` (or `facebook`). The state cookie is set on the 302 response, so the callback succeeds without a cookie race condition. Use it as a direct link: `<a href=\"/api/oauth/google?callbackURL=/dashboard\">Sign in with Google</a>`.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `doctor-services` — per-doctor service catalog (admin)\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
     "version": "0.0.1",
     "contact": {},
-    "x-generated-at": "2026-07-25T20:29:28.911Z"
+    "x-generated-at": "2026-07-25T20:32:50.584Z"
   },
   "tags": [
     {
@@ -3822,58 +3881,6 @@
         "required": [
           "provider"
         ]
-      },
-      "CreateDoctorDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Doctor's full display name.",
-            "minLength": 2,
-            "maxLength": 120,
-            "example": "Dr. Jane Smith"
-          },
-          "categoryId": {
-            "type": "string",
-            "description": "Id of the ACTIVE category this doctor belongs to.",
-            "example": "seed_cardiology"
-          },
-          "bio": {
-            "type": "string",
-            "description": "Short biography / about section.",
-            "maxLength": 2000
-          }
-        },
-        "required": [
-          "name",
-          "categoryId"
-        ]
-      },
-      "UpdateDoctorDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 120
-          },
-          "categoryId": {
-            "type": "string",
-            "description": "Id of an ACTIVE category to reassign the doctor to.",
-            "maxLength": 64
-          },
-          "bio": {
-            "type": "string",
-            "maxLength": 2000
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "ACTIVE",
-              "DEACTIVATED"
-            ]
-          }
-        }
       },
       "RoleChangeDto": {
         "type": "object",
