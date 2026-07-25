@@ -327,6 +327,7 @@ describe('AdminService — Doctor CRUD smoke', () => {
         name: 'Dr. Jane',
         categoryId: 'cat1',
       },
+      undefined,
       'admin1',
     );
     expect(doctor.status).toBe('ACTIVE');
@@ -520,7 +521,11 @@ describe('AdminService — createDoctor categoryId validation (US2)', () => {
   it('createDoctor throws NotFound when the categoryId does not exist', async () => {
     prisma.category.findUnique.mockResolvedValueOnce(null);
     await expect(
-      service.createDoctor({ name: 'Dr. X', categoryId: 'missing' }, 'admin1'),
+      service.createDoctor(
+        { name: 'Dr. X', categoryId: 'missing' },
+        undefined,
+        'admin1',
+      ),
     ).rejects.toThrow(NotFoundException);
     expect(prisma.doctor.create).not.toHaveBeenCalled();
   });
@@ -531,7 +536,11 @@ describe('AdminService — createDoctor categoryId validation (US2)', () => {
       status: 'DEACTIVATED',
     });
     await expect(
-      service.createDoctor({ name: 'Dr. X', categoryId: 'cat1' }, 'admin1'),
+      service.createDoctor(
+        { name: 'Dr. X', categoryId: 'cat1' },
+        undefined,
+        'admin1',
+      ),
     ).rejects.toThrow(BadRequestException);
     expect(prisma.doctor.create).not.toHaveBeenCalled();
   });
@@ -557,6 +566,7 @@ describe('AdminService — createDoctor categoryId validation (US2)', () => {
         name: 'Dr. Y',
         categoryId: 'cat1',
       },
+      undefined,
       'admin1',
     );
     expect(doctor.category).toEqual({ id: 'cat1', name: 'Cardiology' });
@@ -656,6 +666,7 @@ describe('AdminService — updateDoctor categoryId (US3)', () => {
     const result = await service.updateDoctor(
       'd1',
       { name: 'Dr. X renamed' },
+      undefined,
       'admin1',
     );
     expect(result.category).toEqual({ id: 'cat_existing', name: 'Cardiology' });
@@ -698,6 +709,7 @@ describe('AdminService — updateDoctor categoryId (US3)', () => {
     const result = await service.updateDoctor(
       'd1',
       { categoryId: 'cat_new' },
+      undefined,
       'admin1',
     );
     expect(result.category).toEqual({ id: 'cat_new', name: 'Pediatrics' });
@@ -722,7 +734,12 @@ describe('AdminService — updateDoctor categoryId (US3)', () => {
     });
     prisma.category.findUnique.mockResolvedValueOnce(null);
     await expect(
-      service.updateDoctor('d1', { categoryId: 'cat_missing' }, 'admin1'),
+      service.updateDoctor(
+        'd1',
+        { categoryId: 'cat_missing' },
+        undefined,
+        'admin1',
+      ),
     ).rejects.toThrow(NotFoundException);
     expect(prisma.doctor.update).not.toHaveBeenCalled();
   });
@@ -744,7 +761,12 @@ describe('AdminService — updateDoctor categoryId (US3)', () => {
       status: 'DEACTIVATED',
     });
     await expect(
-      service.updateDoctor('d1', { categoryId: 'cat_deact' }, 'admin1'),
+      service.updateDoctor(
+        'd1',
+        { categoryId: 'cat_deact' },
+        undefined,
+        'admin1',
+      ),
     ).rejects.toThrow(BadRequestException);
     expect(prisma.doctor.update).not.toHaveBeenCalled();
   });

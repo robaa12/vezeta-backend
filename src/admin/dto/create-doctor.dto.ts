@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateDoctorDto {
   @ApiProperty({
@@ -30,18 +30,4 @@ export class CreateDoctorDto {
   @IsString()
   @MaxLength(2000)
   bio?: string;
-
-  @ApiPropertyOptional({
-    description: 'Profile photo URL. Must be a valid https:// URL.',
-    maxLength: 2048,
-    example: 'https://cdn.example.com/jane.jpg',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(2048)
-  @IsUrl(
-    { protocols: ['https'], require_protocol: true, require_tld: true },
-    { message: 'imageUrl must be a valid https:// URL' },
-  )
-  imageUrl?: string;
 }

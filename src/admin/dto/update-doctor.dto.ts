@@ -1,12 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsIn,
-  IsOptional,
-  IsString,
-  IsUrl,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateDoctorDto {
   @ApiPropertyOptional({ minLength: 2, maxLength: 120 })
@@ -31,16 +24,6 @@ export class UpdateDoctorDto {
   @IsString()
   @MaxLength(2000)
   bio?: string;
-
-  @ApiPropertyOptional({ maxLength: 2048 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(2048)
-  @IsUrl(
-    { protocols: ['https'], require_protocol: true, require_tld: true },
-    { message: 'imageUrl must be a valid https:// URL' },
-  )
-  imageUrl?: string;
 
   @ApiPropertyOptional({ enum: ['ACTIVE', 'DEACTIVATED'] })
   @IsOptional()

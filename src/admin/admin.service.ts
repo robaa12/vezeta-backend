@@ -4,6 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { unlink } from 'fs/promises';
+import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { UserRole } from '../common/interfaces/session.interface.js';
 import { AuditService } from '../common/audit/audit.service.js';
@@ -11,6 +13,7 @@ import { CreateDoctorDto } from './dto/create-doctor.dto.js';
 import { ListDoctorsDto } from './dto/list-doctors.dto.js';
 import { UpdateDoctorDto } from './dto/update-doctor.dto.js';
 import { ListUsersDto } from './dto/list-users.dto.js';
+import { filePathToUrl } from '../upload/multer.config.js';
 
 export interface DoctorCategoryRef {
   id: string;
@@ -59,6 +62,7 @@ export class AdminService {
 
   async createDoctor(
     dto: CreateDoctorDto,
+    image: Express.Multer.File | undefined,
     actorId: string,
   ): Promise<DoctorRecord> {
     const category = await this.prisma.category.findUnique({
@@ -74,12 +78,14 @@ export class AdminService {
       );
     }
 
+    const imageUrl = image ? filePathToUrl(image.path) : null;
+
     const created = await this.prisma.doctor.create({
       data: {
         name: dto.name,
         categoryId: dto.categoryId,
         bio: dto.bio ?? null,
-        imageUrl: dto.imageUrl ?? null,
+        imageUrl,
         status: 'ACTIVE',
       },
       include: { category: { select: { id: true, name: true } } },
@@ -150,6 +156,7 @@ export class AdminService {
   async updateDoctor(
     id: string,
     dto: UpdateDoctorDto,
+    image: Express.Multer.File | undefined,
     actorId: string,
   ): Promise<DoctorRecord> {
     const existing = await this.prisma.doctor.findUnique({ where: { id } });
@@ -177,8 +184,12 @@ export class AdminService {
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.categoryId !== undefined) data.categoryId = dto.categoryId;
     if (dto.bio !== undefined) data.bio = dto.bio;
-    if (dto.imageUrl !== undefined) data.imageUrl = dto.imageUrl;
     if (dto.status !== undefined) data.status = dto.status;
+
+    if (image) {
+      data.imageUrl = filePathToUrl(image.path);
+    }
+
     if (Object.keys(data).length === 0) {
       throw new ConflictException('No fields to update');
     }
@@ -187,6 +198,10 @@ export class AdminService {
       data,
       include: { category: { select: { id: true, name: true } } },
     });
+
+    if (image && existing.imageUrl) {
+      void this.deleteOldImageFile(existing.imageUrl).catch(() => {});
+    }
 
     void this.audit.record({
       actorId,
@@ -252,6 +267,9 @@ export class AdminService {
           'Cannot hard-delete a doctor with historical bookings, reviews, or medical records; deactivate instead',
         error: 'doctor_has_history',
       });
+    }
+    if (existing.imageUrl) {
+      void this.deleteOldImageFile(existing.imageUrl).catch(() => {});
     }
     await this.prisma.doctor.delete({ where: { id } });
 
@@ -554,6 +572,17 @@ export class AdminService {
   }
 
   // ---------------- Helpers ----------------
+
+  private async deleteOldImageFile(imageUrl: string): Promise<void> {
+    const filename = imageUrl.split('/').pop();
+    if (!filename) return;
+    const filePath = join(process.cwd(), 'uploads', 'doctors', filename);
+    try {
+      await unlink(filePath);
+    } catch {
+      // Ignore: file may already be gone
+    }
+  }
 
   private toDoctorRecord(d: {
     id: string;

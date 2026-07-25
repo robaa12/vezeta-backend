@@ -2,12 +2,15 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { json } from 'express';
+import { json, static as expressStatic } from 'express';
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { validateEnv } from './common/env.js';
 import { StructuredLogger } from './common/logging/structured.logger.js';
+import { addBetterAuthPaths } from './swagger.js';
 
 // Fail fast on missing or invalid environment variables.
 validateEnv();
@@ -106,7 +109,7 @@ async function bootstrap(): Promise<void> {
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup('api/docs', app, document, {
+    SwaggerModule.setup('api/docs', app, addBetterAuthPaths(document), {
       swaggerOptions: {
         persistAuthorization: false,
         withCredentials: true,
@@ -117,6 +120,17 @@ async function bootstrap(): Promise<void> {
   app.enableShutdownHooks();
 
   const port = Number(process.env.PORT ?? 3000);
+
+  // Ensure the uploads directory exists for multer disk storage.
+  const uploadsDir = join(process.cwd(), 'uploads', 'doctors');
+  if (!existsSync(uploadsDir)) {
+    mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  // Serve uploaded files under /uploads/ so clients can fetch
+  // doctor images, etc. directly via the API server.
+  app.use('/uploads', expressStatic(join(process.cwd(), 'uploads')));
+
   await app.listen(port);
   structuredLogger.log(`Vezeeta backend listening on :${port}`, 'Bootstrap');
   if (isSwaggerEnabled()) {

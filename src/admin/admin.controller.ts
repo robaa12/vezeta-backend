@@ -8,11 +8,15 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
+  ApiConsumes,
   ApiCookieAuth,
   ApiCreatedResponse,
   ApiForbiddenResponse,
@@ -40,6 +44,7 @@ import { RoleChangeDto } from './dto/role-change.dto.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
+import { doctorImageMulterOpts } from '../upload/multer.config.js';
 import type { SessionUser } from '../common/interfaces/session.interface.js';
 
 @ApiTags('admin')
@@ -84,14 +89,17 @@ export class AdminController {
 
   @Post('doctors')
   @ApiOperation({ summary: 'Create a new doctor record' })
+  @ApiConsumes('multipart/form-data')
   @ApiCreatedResponse({ description: 'Doctor created.' })
   @ApiBadRequestResponse({ description: 'Validation error.' })
+  @UseInterceptors(FileInterceptor('image', doctorImageMulterOpts))
   createDoctor(
     @Body() body: CreateDoctorDto,
+    @UploadedFile() image: Express.Multer.File | undefined,
     @CurrentUser() admin: SessionUser,
   ): Promise<{ doctor: DoctorRecord }> {
     return this.adminService
-      .createDoctor(body, admin.id)
+      .createDoctor(body, image, admin.id)
       .then((doctor) => ({ doctor }));
   }
 
@@ -105,16 +113,19 @@ export class AdminController {
 
   @Patch('doctors/:id')
   @ApiOperation({ summary: 'Update a doctor (partial)' })
+  @ApiConsumes('multipart/form-data')
   @ApiParam({ name: 'id', description: 'Doctor id' })
   @ApiNotFoundResponse({ description: 'Doctor not found.' })
   @ApiConflictResponse({ description: 'No fields to update.' })
+  @UseInterceptors(FileInterceptor('image', doctorImageMulterOpts))
   updateDoctor(
     @Param('id') id: string,
     @Body() body: UpdateDoctorDto,
+    @UploadedFile() image: Express.Multer.File | undefined,
     @CurrentUser() admin: SessionUser,
   ): Promise<{ doctor: DoctorRecord }> {
     return this.adminService
-      .updateDoctor(id, body, admin.id)
+      .updateDoctor(id, body, image, admin.id)
       .then((doctor) => ({ doctor }));
   }
 
