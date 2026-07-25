@@ -35,6 +35,15 @@ export class EmailService {
         host: process.env.SMTP_HOST ?? 'localhost',
         port: Number(process.env.SMTP_PORT ?? 1025),
         secure: process.env.SMTP_SECURE === 'true',
+        // Fail fast on unreachable SMTP. Defaults (30s greeting, 2m
+        // connection, 10m socket) mask configuration mistakes — users
+        // see a "hung" request and retry, ending up with duplicate
+        // accounts. With 5s timeouts a misconfigured SMTP_HOST surfaces
+        // as an obvious log error within seconds.
+        connectionTimeout: 5_000,
+        greetingTimeout: 5_000,
+        socketTimeout: 10_000,
+        dnsTimeout: 5_000,
       });
       this.logger.log(
         `Using SMTP provider via ${process.env.SMTP_HOST ?? 'localhost'}:${process.env.SMTP_PORT ?? 1025}`,
@@ -138,13 +147,19 @@ export class EmailService {
     html: string;
     tag: string;
   }): Promise<void> {
+    const timeoutMs = 10_000;
     try {
-      const { data, error } = await this.resend!.emails.send({
+      const send = this.resend!.emails.send({
         from: this.fromAddress,
         to: params.to,
         subject: params.subject,
         html: params.html,
       });
+      const { data, error } = await this.withTimeout(
+        send,
+        timeoutMs,
+        `Resend send to ${params.to} timed out after ${timeoutMs}ms`,
+      );
       if (error) {
         this.logger.error(
           `Resend rejected email to ${params.to}: ${error.name} — ${error.message}`,
@@ -159,6 +174,26 @@ export class EmailService {
       this.logger.error(`Failed to send email to ${params.to}: ${message}`);
       throw err;
     }
+  }
+
+  private withTimeout<T>(
+    p: Promise<T>,
+    ms: number,
+    message: string,
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(message)), ms);
+      p.then(
+        (v) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        (e) => {
+          clearTimeout(timer);
+          reject(e instanceof Error ? e : new Error(String(e)));
+        },
+      );
+    });
   }
 
   // ─── Shared layout wrapper ────────────────────────────────────────────────

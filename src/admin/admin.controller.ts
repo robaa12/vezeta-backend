@@ -47,6 +47,53 @@ import { RolesGuard } from '../common/guards/roles.guard.js';
 import { doctorImageMulterOpts } from '../upload/multer.config.js';
 import type { SessionUser } from '../common/interfaces/session.interface.js';
 
+// Shared response schema for the Doctor payload. Used by every doctor
+// endpoint so the generated OpenAPI surface documents `imageUrl` (and
+// the rest of the doctor shape) the same way for create, update,
+// get, and list responses.
+const DOCTOR_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'Doctor id (cuid).' },
+    name: { type: 'string', description: "Doctor's full display name." },
+    category: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+      },
+      required: ['id', 'name'],
+    },
+    bio: {
+      type: 'string',
+      nullable: true,
+      description: 'Short biography / about section.',
+    },
+    imageUrl: {
+      type: 'string',
+      nullable: true,
+      description:
+        "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
+      example: '/uploads/doctors/clx123abc.jpg',
+    },
+    status: { type: 'string', enum: ['ACTIVE', 'DEACTIVATED'] },
+    services: {
+      type: 'array',
+      items: { type: 'object' },
+      description: 'Per-doctor service catalog (admin view).',
+    },
+    createdAt: { type: 'string', format: 'date-time' },
+    updatedAt: { type: 'string', format: 'date-time' },
+  },
+  required: ['id', 'name', 'category', 'status', 'createdAt', 'updatedAt'],
+};
+
+const DOCTOR_WRAPPED_SCHEMA = {
+  type: 'object',
+  properties: { doctor: DOCTOR_RESPONSE_SCHEMA },
+  required: ['doctor'],
+};
+
 @ApiTags('admin')
 @ApiProduces('application/json')
 @ApiCookieAuth('vezeta.session_token')
@@ -71,7 +118,7 @@ export class AdminController {
     schema: {
       type: 'object',
       properties: {
-        doctors: { type: 'array', items: { type: 'object' } },
+        doctors: { type: 'array', items: DOCTOR_RESPONSE_SCHEMA },
         total: { type: 'integer' },
         page: { type: 'integer' },
         pageSize: { type: 'integer' },
@@ -90,7 +137,10 @@ export class AdminController {
   @Post('doctors')
   @ApiOperation({ summary: 'Create a new doctor record' })
   @ApiConsumes('multipart/form-data')
-  @ApiCreatedResponse({ description: 'Doctor created.' })
+  @ApiCreatedResponse({
+    description: 'Doctor created.',
+    schema: DOCTOR_WRAPPED_SCHEMA,
+  })
   @ApiBadRequestResponse({ description: 'Validation error.' })
   @UseInterceptors(FileInterceptor('image', doctorImageMulterOpts))
   createDoctor(
@@ -106,6 +156,10 @@ export class AdminController {
   @Get('doctors/:id')
   @ApiOperation({ summary: 'Get a doctor by id' })
   @ApiParam({ name: 'id', description: 'Doctor id' })
+  @ApiOkResponse({
+    description: 'Doctor found.',
+    schema: DOCTOR_WRAPPED_SCHEMA,
+  })
   @ApiNotFoundResponse({ description: 'Doctor not found.' })
   getDoctor(@Param('id') id: string): Promise<{ doctor: DoctorRecord }> {
     return this.adminService.getDoctor(id).then((doctor) => ({ doctor }));
@@ -115,6 +169,10 @@ export class AdminController {
   @ApiOperation({ summary: 'Update a doctor (partial)' })
   @ApiConsumes('multipart/form-data')
   @ApiParam({ name: 'id', description: 'Doctor id' })
+  @ApiOkResponse({
+    description: 'Doctor updated.',
+    schema: DOCTOR_WRAPPED_SCHEMA,
+  })
   @ApiNotFoundResponse({ description: 'Doctor not found.' })
   @ApiConflictResponse({ description: 'No fields to update.' })
   @UseInterceptors(FileInterceptor('image', doctorImageMulterOpts))
@@ -132,6 +190,10 @@ export class AdminController {
   @Patch('doctors/:id/deactivate')
   @ApiOperation({ summary: 'Soft-deactivate a doctor' })
   @ApiParam({ name: 'id', description: 'Doctor id' })
+  @ApiOkResponse({
+    description: 'Doctor deactivated.',
+    schema: DOCTOR_WRAPPED_SCHEMA,
+  })
   @ApiNotFoundResponse({ description: 'Doctor not found.' })
   @ApiConflictResponse({ description: 'Doctor is already deactivated.' })
   deactivateDoctor(

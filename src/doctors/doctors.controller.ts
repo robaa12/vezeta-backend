@@ -23,6 +23,54 @@ import {
 } from './doctors.service.js';
 import { ListPublicDoctorsDto } from './dto/list-doctors.dto.js';
 
+// Public-facing doctor schemas. The list item is intentionally
+// lighter (no bio, no imageUrl) — see the comment on
+// PublicDoctorListItem in doctors.service.ts. The detail item is the
+// full PublicDoctorRecord, including the relative `imageUrl`.
+const PUBLIC_DOCTOR_LIST_ITEM_SCHEMA = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    category: {
+      type: 'object',
+      properties: { id: { type: 'string' }, name: { type: 'string' } },
+      required: ['id', 'name'],
+    },
+    status: { type: 'string', enum: ['ACTIVE', 'DEACTIVATED'] },
+  },
+  required: ['id', 'name', 'category', 'status'],
+};
+
+const PUBLIC_DOCTOR_DETAIL_SCHEMA = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    category: {
+      type: 'object',
+      properties: { id: { type: 'string' }, name: { type: 'string' } },
+      required: ['id', 'name'],
+    },
+    bio: { type: 'string', nullable: true },
+    imageUrl: {
+      type: 'string',
+      nullable: true,
+      description:
+        "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
+      example: '/uploads/doctors/clx123abc.jpg',
+    },
+    status: { type: 'string', enum: ['ACTIVE', 'DEACTIVATED'] },
+    services: {
+      type: 'array',
+      items: { type: 'object' },
+    },
+    createdAt: { type: 'string', format: 'date-time' },
+    updatedAt: { type: 'string', format: 'date-time' },
+  },
+  required: ['id', 'name', 'category', 'status', 'createdAt', 'updatedAt'],
+};
+
 @ApiTags('doctors')
 @ApiProduces('application/json')
 @Controller('api')
@@ -50,7 +98,7 @@ export class DoctorsController {
     schema: {
       type: 'object',
       properties: {
-        doctors: { type: 'array', items: { type: 'object' } },
+        doctors: { type: 'array', items: PUBLIC_DOCTOR_LIST_ITEM_SCHEMA },
         total: { type: 'integer' },
         page: { type: 'integer' },
         pageSize: { type: 'integer' },
@@ -83,7 +131,8 @@ export class DoctorsController {
     description: 'Doctor found.',
     schema: {
       type: 'object',
-      properties: { doctor: { type: 'object' } },
+      properties: { doctor: PUBLIC_DOCTOR_DETAIL_SCHEMA },
+      required: ['doctor'],
     },
   })
   @ApiTooManyRequestsResponse({ description: 'Rate limit exceeded.' })
