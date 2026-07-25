@@ -20,8 +20,14 @@ const envSchema = z.object({
     .min(1, 'BETTER_AUTH_URL is required')
     .default('http://localhost:3000'),
 
+  MAIL_PROVIDER: z.enum(['resend', 'smtp']).optional().default('resend'),
+
   RESEND_API_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().optional().default('Vezeeta <onboarding@resend.dev>'),
+
+  SMTP_HOST: z.string().optional().default('localhost'),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional().default(1025),
+  SMTP_SECURE: z.enum(['true', 'false']).optional().default('false'),
 
   SMS_PROVIDER_API_KEY: z.string().optional().default(''),
   SMS_PROVIDER_SENDER_ID: z.string().optional().default('Vezeeta'),
