@@ -27,8 +27,22 @@ RUN npx prisma generate
 # Compile TypeScript -> dist/ (no source maps in production)
 RUN npx nest build --path tsconfig.build.prod.json
 
-# Prune dev dependencies to keep only prod deps for the runner image
-RUN npm prune --omit=dev
+# ---------- Stage 1b: dev (keeps all dev dependencies) ----------
+FROM builder AS dev
+
+# Runtime OS deps needed in dev (openssl for Prisma, wget for healthcheck)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates dumb-init wget \
+ && rm -rf /var/lib/apt/lists/*
+
+# Copy entrypoint for automated migrations + seeding
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENV NODE_ENV=development \
+    PORT=3000
+
+ENTRYPOINT ["dumb-init", "/usr/local/bin/entrypoint.sh"]
 
 # ---------- Stage 2: runtime ----------
 FROM node:22-bookworm-slim AS runner
@@ -44,12 +58,15 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates dumb-init wget \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy production node_modules and build artifacts
+# Copy full node_modules and package files, then prune dev deps
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json /app/package-lock.json* ./
+RUN npm prune --omit=dev
+
+# Copy build artifacts
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
-COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Copy entrypoint script

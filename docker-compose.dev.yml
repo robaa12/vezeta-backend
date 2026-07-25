@@ -4,11 +4,17 @@
 services:
   app:
     build:
-      target: builder
+      target: dev
     command: npm run start:dev
     environment:
       NODE_ENV: development
       BETTER_AUTH_URL: http://localhost:3000
+      SWAGGER_ENABLED: "true"
+      MAIL_PROVIDER: smtp
+      SMTP_HOST: host.docker.internal
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      RUN_SEED: "true"
     volumes:
       - ./src:/app/src:ro
       - ./prisma:/app/prisma:ro
@@ -19,3 +25,10 @@ services:
       - ./prisma.config.ts:/app/prisma.config.ts:ro
     ports:
       - "3000:3000"
+    networks:
+      - vezeeta-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mailhog:
+        condition: service_started
