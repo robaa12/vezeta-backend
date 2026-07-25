@@ -103,14 +103,18 @@ In dev, the OTP is logged to the console (`[phone-otp] …`).
 
 Two approaches — pick whichever fits your frontend architecture:
 
-**Simple redirect (static/SSR pages):**
+**Simple redirect (static/SSR pages or any `<a>` link):**
 ```
-<a href="${BETTER_AUTH_URL}/api/auth/oauth/start?provider=google&callbackURL=${encodeURIComponent('/dashboard')}">
+<a href="${API_BASE_URL}/api/oauth/google?callbackURL=${encodeURIComponent('/dashboard')}">
   Continue with Google
 </a>
 ```
 
-This is a Better Auth standard route that issues the CSRF cookie and **302-redirects** the browser to Google. The callback lands on `/api/auth/callback/google`, sets the session cookie, and redirects to `callbackURL`.
+This is a **wrapper around Better Auth's social-sign-in** that handles the state-cookie dance for you: the server generates the CSRF state cookie, then **302-redirects** the browser to Google. The callback lands on `/api/auth/callback/google`, sets the `vezeta.session_token` session cookie, and redirects to `callbackURL`. Use this whenever you can render a server-side link.
+
+- Path: `GET /api/oauth/{provider}` where `provider` is `google` or `facebook`.
+- Query: `callbackURL` (optional, defaults to `/`).
+- 404 if the provider is unknown or not configured on the backend (missing `GOOGLE_CLIENT_ID` / `FACEBOOK_CLIENT_ID`).
 
 **SPA / JS-initiated flow (React, Vue, etc.):**
 ```
@@ -119,7 +123,7 @@ POST /api/auth/sign-in/social
 → { "url": "https://accounts.google.com/o/oauth2/..." }
 ```
 
-Call this endpoint, then `window.location.href = result.url` to start the OAuth flow in the browser.
+Call this endpoint, then `window.location.href = result.url` to start the OAuth flow in the browser. You must read the response's `Set-Cookie` headers yourself and persist them before following the redirect, otherwise the callback fails with `state_mismatch` — this is the reason the GET wrapper above exists.
 
 ### 4.6 Linking a social account to an existing user
 
@@ -285,6 +289,7 @@ See [section 4](#4-authentication-flow) above for the full flow. The custom rout
 - `GET /api/me` — current session user
 - `GET /api/health` — liveness probe (HTTP server alive, no DB check)
 - `GET /api/health/ready` — readiness probe (checks database connectivity)
+- `GET /api/oauth/{provider}` — browser-friendly social-login redirect (handles the state-cookie dance); see [§4.5](#45-social-login-google--facebook)
 - `POST /api/auth/link-social` — start linking Google/Facebook to current account
 - `DELETE /api/auth/social-accounts/:provider` — unlink
 
@@ -376,7 +381,7 @@ The backend sends these notifications automatically via cron + event listeners. 
 
 All routes require the `admin` role **and** an active account. The list below is grouped by surface — see the spec for the full DTOs.
 
-**Doctors:** list/create/get/update/deactivate (soft)/hard-delete
+**Doctors:** list/create/get/update/deactivate (soft)/hard-delete. The create and update endpoints accept `multipart/form-data` with an optional `image` file field for the profile photo (see §12.1).
 **Slots:** create/list/get/update/block (soft)/hard-delete
 **Appointments:** list/get + lifecycle transitions: `confirm` (PENDING→CONFIRMED), `cancel` (any→CANCELLED), `complete` (CONFIRMED→COMPLETED, only if `scheduledAt` is in the past)
 **Users:** list/get/change-role (last-active-admin demotion rejected)/deactivate
@@ -407,7 +412,42 @@ These are **hints to intermediaries** (CDN, browser HTTP cache). The backend its
 
 ## 12. File uploads
 
-The API does **not** accept multipart uploads. Attachments (e.g. lab results on medical records) are URLs — the frontend uploads to its own object store (S3, R2, etc.) and posts the resulting URL in the body. The `imageUrl` field on doctors behaves the same way.
+### 12.1 Doctor image upload
+
+Creating or updating a doctor accepts a profile image as a file upload instead of a URL. The endpoints use `multipart/form-data`:
+
+```
+POST /api/admin/doctors
+Content-Type: multipart/form-data
+
+name          (text)     "Dr. Jane Smith"          — required
+categoryId    (text)     "seed_cardiology"         — required
+bio           (text)     "About the doctor..."     — optional
+image         (file)     doctor-photo.jpg           — optional
+```
+
+```
+PATCH /api/admin/doctors/:id
+Content-Type: multipart/form-data
+
+name          (text)     "Dr. Jane Smith"          — optional
+categoryId    (text)     "seed_cardiology"         — optional
+bio           (text)     "Updated bio..."           — optional
+status        (text)     "ACTIVE" | "DEACTIVATED"   — optional
+image         (file)     new-photo.jpg              — optional
+```
+
+**Constraints:**
+- Accepted formats: JPEG, PNG, GIF, WebP
+- Max file size: 5 MB
+- Files are stored on the server's local disk under `uploads/doctors/`
+- The response `imageUrl` field contains a relative URL like `/uploads/doctors/<uuid>.jpg` — prepend the API base URL to display it (e.g. `http://localhost:3000/uploads/doctors/<uuid>.jpg`)
+- On update: if a new image is uploaded, the old one is deleted
+- After a doctor is hard-deleted, the associated image file is cleaned up
+
+### 12.2 Other attachments
+
+Other resources (medical record attachments, etc.) continue to use URL references — the frontend uploads to its own object store (S3, R2, etc.) and posts the resulting URL in the body.
 
 ---
 
@@ -465,13 +505,20 @@ const { appointment } = await (
 
 ### Drive admin actions
 ```ts
+// Create a doctor with profile image
+const form = new FormData();
+form.append('name', 'Dr. Jane');
+form.append('categoryId', categoryId);
+form.append('bio', 'About the doctor...');
+form.append('image', fileInput.files[0]); // optional
+
 await f('/api/admin/doctors', {
   method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ name, categoryId }),
+  body: form, // Content-Type is set automatically by the browser
 });
 // 401 → not signed in
 // 403 → not an admin or account deactivated
+// 400 → invalid image type or file too large (>5 MB)
 ```
 
 ---

@@ -61,3 +61,7 @@ prisma/migrations/dev.db*
 
 # Better Auth generated
 .auth
+
+# Uploaded files (local disk storage, keep directory structure)
+uploads/**
+!uploads/doctors/.gitkeep

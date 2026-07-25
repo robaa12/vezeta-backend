@@ -71,6 +71,61 @@ npm run db:migrate
 npm run db:seed
 ```
 
+## Docker Setup (with MailHog) — Recommended for Frontend Devs
+
+The Docker compose stack includes PostgreSQL, the API server, and **MailHog**
+— an SMTP catch-all that captures every email the backend sends. No external
+email service needed. Perfect for demonstrating the full sign-up → OTP →
+verification flow to customers.
+
+### Quick Start
+
+```bash
+# 1. Prerequisites: Docker + Docker Compose
+docker --version   # >= 24
+
+# 2. Clone and configure
+cp .env.example .env
+# Required: set BETTER_AUTH_SECRET (generate with: openssl rand -base64 32)
+
+# 3. Start everything
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+### Services
+
+| Service   | URL                            | Description                                  |
+|-----------|--------------------------------|----------------------------------------------|
+| API       | `http://localhost:3000`        | NestJS backend                               |
+| Swagger   | `http://localhost:3000/api/docs` | Full API docs (auth, doctors, appointments, admin) |
+| MailHog   | `http://localhost:8025`        | SMTP inbox — all outbound emails land here   |
+| PostgreSQL | `localhost:5433`              | (if `POSTGRES_PORT=5433` in .env)            |
+
+### End-to-End Sign-Up Flow (via MailHog)
+
+```
+1. POST /api/auth/sign-up/email
+   { "email": "test@example.com", "password": "Str0ngP@ss!", "name": "Test User" }
+
+2. Open http://localhost:8025 → find the OTP email
+
+3. POST /api/auth/email-otp/verify-email
+   { "email": "test@example.com", "otp": "123456" }
+
+4. Session cookie set — user is authenticated
+```
+
+### Switching Email Providers
+
+| Variable | Value | Behavior |
+|----------|-------|----------|
+| `MAIL_PROVIDER=resend` | default | Uses Resend REST API (needs RESEND_API_KEY) |
+| `MAIL_PROVIDER=smtp` | dev default | Uses nodemailer → MailHog (no API key needed) |
+
+The dev compose file (`docker-compose.dev.yml`) overrides the app to use
+`MAIL_PROVIDER=smtp` with `SMTP_HOST=host.docker.internal` automatically.
+No extra configuration needed.
+
 ## Environment Variables
 
 | Var                          | Required | Description                                  |
@@ -79,8 +134,13 @@ npm run db:seed
 | `DATABASE_URL`               | yes      | PostgreSQL connection string                 |
 | `BETTER_AUTH_SECRET`         | yes      | 32+ char secret for sessions                 |
 | `BETTER_AUTH_URL`            | yes      | Public base URL (e.g. `http://localhost:3000`) |
-| `EMAIL_FROM`                 | no       | From address for OTP emails                  |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | no | SMTP creds (planned) |
+| `EMAIL_FROM`                 | no       | From address for outgoing emails             |
+| `RESEND_API_KEY`             | no       | Resend API key (required if `MAIL_PROVIDER=resend`) |
+| `MAIL_PROVIDER`              | no       | `resend` (default) or `smtp` for MailHog     |
+| `SMTP_HOST`                  | no       | SMTP relay host (default `localhost`)        |
+| `SMTP_PORT`                  | no       | SMTP relay port (default `1025`)             |
+| `SMTP_SECURE`                | no       | `true` or `false` (default `false`)          |
+| `SWAGGER_ENABLED`            | no       | `true` to force Swagger UI on in production  |
 | `SMS_PROVIDER_API_KEY`       | no       | SMS provider key (planned)                   |
 | `SEED_ADMIN_EMAIL`           | yes (seed) | Super Admin email                          |
 | `SEED_ADMIN_PHONE`           | yes (seed) | Super Admin phone (E.164)                  |
