@@ -289,7 +289,21 @@ export class AppointmentsService {
         );
       }
 
-      // 3. Create the appointment
+      // 3. Clear any prior CANCELLED appointment for this slot. The
+      //    Appointment.slotId UNIQUE constraint makes the slot a
+      //    1:1 owner of an appointment row for the lifetime of the
+      //    database; if a previous booking was cancelled, that row
+      //    is still here even though the slot is AVAILABLE again.
+      //    Deleting the terminal CANCELLED row frees the slotId for
+      //    the new appointment. Audit trail is preserved because the
+      //    APPOINTMENT_CANCELLED event was already emitted at
+      //    cancel-time and is the source of truth for the cancel.
+      //    deleteMany (vs delete) tolerates the no-prior-cancel case.
+      await tx.appointment.deleteMany({
+        where: { slotId: dto.slotId, status: 'CANCELLED' },
+      });
+
+      // 4. Create the appointment
       return tx.appointment.create({
         data: {
           userId,

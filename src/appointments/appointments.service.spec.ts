@@ -358,6 +358,7 @@ describe('AppointmentsService — bookSlot (US2)', () => {
       },
       appointment: {
         create: jest.fn(),
+        deleteMany: jest.fn(),
       },
     };
     (prisma['$transaction'] as jest.Mock).mockImplementation(
@@ -499,6 +500,9 @@ describe('AppointmentsService — bookSlot (US2)', () => {
       startsAt: new Date(Date.now() + 3600_000),
       doctor: { status: 'ACTIVE', category: { status: 'ACTIVE' } },
     });
+    (txMock['appointment']['deleteMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
     (txMock['appointment']['create'] as jest.Mock).mockResolvedValueOnce({
       id: 'a1',
       status: 'PENDING',
@@ -525,6 +529,53 @@ describe('AppointmentsService — bookSlot (US2)', () => {
     expect(txMock['doctorSlot']['updateMany']).toHaveBeenCalledWith({
       where: { id: 's1', status: 'AVAILABLE' },
       data: { status: 'BOOKED' },
+    });
+    expect(txMock['appointment']['deleteMany']).toHaveBeenCalledWith({
+      where: { slotId: 's1', status: 'CANCELLED' },
+    });
+  });
+
+  it('clears a prior CANCELLED appointment for the slot before re-booking (regression)', async () => {
+    (prisma['user'].findUnique as jest.Mock).mockResolvedValueOnce({
+      isActive: true,
+    });
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+    });
+    (txMock['doctorSlot']['updateMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+    (
+      txMock['doctorSlot']['findUniqueOrThrow'] as jest.Mock
+    ).mockResolvedValueOnce({
+      doctorId: 'd1',
+      startsAt: new Date(Date.now() + 3600_000),
+      doctor: { status: 'ACTIVE', category: { status: 'ACTIVE' } },
+    });
+    (txMock['appointment']['deleteMany'] as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+    (txMock['appointment']['create'] as jest.Mock).mockResolvedValueOnce({
+      id: 'a2',
+      userId: 'u2',
+      doctorId: 'd1',
+      status: 'PENDING',
+      scheduledAt: new Date(Date.now() + 3600_000),
+      patientNotes: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      doctor: {
+        id: 'd1',
+        name: 'Dr. X',
+        category: { id: 'c1', name: 'Cardiology' },
+      },
+    });
+    const result = await service.bookSlot('u2', { slotId: 's1' });
+    expect(result.appointment.id).toBe('a2');
+    expect(txMock['appointment']['deleteMany']).toHaveBeenCalledWith({
+      where: { slotId: 's1', status: 'CANCELLED' },
     });
   });
 });
