@@ -12,7 +12,10 @@ import {
   type ReviewPostedPayload,
 } from '../common/events/domain-events.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
-import { ListReviewsDto } from './dto/list-reviews.dto.js';
+import type {
+  ListAdminReviewsDto,
+  ListReviewsDto,
+} from './dto/list-reviews.dto.js';
 import {
   type ListReviewsResult,
   type ReviewResponseDto,
@@ -130,25 +133,32 @@ export class ReviewsService {
   }
 
   // =========================================================================
-  // Public — list reviews for a doctor + aggregate rating
+  // Public — list reviews for an active doctor
   // =========================================================================
 
   async listDoctorReviews(
     doctorId: string,
     query: ListReviewsDto,
   ): Promise<ListReviewsResult> {
-    const doctorExists = await this.prisma.doctor.findUnique({
+    const doctor = await this.prisma.doctor.findUnique({
       where: { id: doctorId },
-      select: { id: true, status: true },
+      select: {
+        status: true,
+        category: { select: { status: true } },
+      },
     });
-    if (!doctorExists) {
+    if (
+      !doctor ||
+      doctor.status !== 'ACTIVE' ||
+      doctor.category.status !== 'ACTIVE'
+    ) {
       throw new NotFoundException('Doctor not found');
     }
+
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-
     const where = { doctorId };
-    const [records, total, agg] = await Promise.all([
+    const [records, total, aggregate] = await Promise.all([
       this.prisma.review.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -168,36 +178,27 @@ export class ReviewsService {
       }),
       this.prisma.review.count({ where }),
       this.prisma.review.aggregate({
-        where: { doctorId },
+        where,
         _avg: { rating: true },
-        _count: { _all: true },
       }),
     ]);
 
     return {
-      reviews: records.map((r) => this.toResponse(r)),
+      reviews: records.map((review) => this.toResponse(review)),
       total,
       page,
       pageSize,
-      averageRating: agg._avg.rating ?? null,
+      averageRating: aggregate._avg.rating ?? null,
     };
   }
 
-  /**
-   * Lightweight aggregate used by the doctor-profile endpoint. Returns
-   * null when the doctor has no reviews so the caller can omit the field
-   * rather than render a misleading 0.0.
-   */
   // =========================================================================
   // Admin — list / delete reviews (moderation surface)
   // =========================================================================
 
-  async listAdminReviews(query: {
-    doctorId?: string;
-    userId?: string;
-    page?: number;
-    pageSize?: number;
-  }): Promise<ListReviewsResult> {
+  async listAdminReviews(
+    query: ListAdminReviewsDto,
+  ): Promise<ListReviewsResult> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where: Record<string, unknown> = {};

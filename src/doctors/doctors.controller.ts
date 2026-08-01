@@ -23,10 +23,9 @@ import {
 } from './doctors.service.js';
 import { ListPublicDoctorsDto } from './dto/list-doctors.dto.js';
 
-// Public-facing doctor schemas. The list item is intentionally
-// lighter (no bio, no imageUrl) — see the comment on
-// PublicDoctorListItem in doctors.service.ts. The detail item is the
-// full PublicDoctorRecord, including the relative `imageUrl`.
+// Public-facing doctor schemas. The list item is intentionally lighter
+// (no bio or services), while still including the image and aggregate
+// rating needed by catalog cards. The detail item is the full record.
 const PUBLIC_DOCTOR_LIST_ITEM_SCHEMA = {
   type: 'object',
   properties: {
@@ -37,9 +36,25 @@ const PUBLIC_DOCTOR_LIST_ITEM_SCHEMA = {
       properties: { id: { type: 'string' }, name: { type: 'string' } },
       required: ['id', 'name'],
     },
+    imageUrl: { type: 'string', nullable: true },
+    averageRating: {
+      type: 'number',
+      nullable: true,
+      minimum: 1,
+      maximum: 5,
+    },
+    reviewCount: { type: 'integer', minimum: 0 },
     status: { type: 'string', enum: ['ACTIVE', 'DEACTIVATED'] },
   },
-  required: ['id', 'name', 'category', 'status'],
+  required: [
+    'id',
+    'name',
+    'category',
+    'imageUrl',
+    'averageRating',
+    'reviewCount',
+    'status',
+  ],
 };
 
 const PUBLIC_DOCTOR_DETAIL_SCHEMA = {
@@ -87,7 +102,9 @@ export class DoctorsController {
   @Get('doctors')
   @AllowAnonymous()
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
-  @Header('Cache-Control', 'public, max-age=60')
+   // Doctor status can change from the admin dashboard, so stale public
+   // catalog responses must not keep deactivated doctors visible.
+   @Header('Cache-Control', 'no-store')
   @ApiOperation({
     summary: 'List ACTIVE doctors (public)',
     description:
@@ -120,7 +137,7 @@ export class DoctorsController {
   @Get('doctors/:id')
   @AllowAnonymous()
   @Throttle({ default: { limit: 120, ttl: 60_000 } })
-  @Header('Cache-Control', 'public, max-age=300')
+   @Header('Cache-Control', 'no-store')
   @ApiOperation({
     summary: 'Get a public doctor profile',
     description:

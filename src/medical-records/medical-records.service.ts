@@ -159,6 +159,16 @@ export class MedicalRecordsService {
   // Read — admin OR owning patient (constitution §VI day-one rule)
   // =========================================================================
 
+  async getForAdmin(
+    appointmentId: string,
+  ): Promise<{ medicalRecord: MedicalRecordResponseDto | null }> {
+    const record = await this.prisma.medicalRecord.findUnique({
+      where: { appointmentId },
+      include: { doctor: { select: { id: true, name: true } } },
+    });
+    return { medicalRecord: record ? this.toResponse(record) : null };
+  }
+
   async getByAppointment(
     requesterId: string,
     requesterRole: 'user' | 'admin',

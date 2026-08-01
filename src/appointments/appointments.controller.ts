@@ -28,7 +28,7 @@ import { BookAppointmentDto } from './dto/book-appointment.dto.js';
 import { ListMyAppointmentsDto } from './dto/list-my-appointments.dto.js';
 import {
   type AppointmentResponseDto,
-  type ListMyAppointmentsResult,
+  ListMyAppointmentsResult,
 } from './dto/appointment-response.dto.js';
 
 @ApiTags('appointments')
@@ -72,6 +72,7 @@ export class AppointmentsController {
   @ApiOperation({ summary: 'List my appointments (patient)' })
   @ApiOkResponse({
     description: "Paginated list of the patient's appointments.",
+    type: ListMyAppointmentsResult,
   })
   @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
   @ApiUnauthorizedResponse({ description: 'No active session.' })

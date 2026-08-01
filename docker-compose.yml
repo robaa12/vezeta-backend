@@ -55,6 +55,8 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-false}
     ports:
       - "${PORT:-3000}:3000"
+    volumes:
+      - doctor-uploads:/app/uploads
     networks:
       - vezeeta-net
 
@@ -70,6 +72,7 @@ services:
 
 volumes:
   postgres-data:
+  doctor-uploads:
 
 networks:
   vezeeta-net:

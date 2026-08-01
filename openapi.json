@@ -1876,7 +1876,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Paginated list of appointments."
+            "description": "Paginated list of appointments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMyAppointmentsResult"
+                }
+              }
+            }
           },
           "401": {
             "description": "No active session."
@@ -2065,7 +2072,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Paginated list of the patient's appointments."
+            "description": "Paginated list of the patient's appointments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMyAppointmentsResult"
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid query parameters."
@@ -3051,7 +3065,7 @@
     },
     "/api/doctors/{id}/reviews": {
       "get": {
-        "description": "Paginated list of reviews for a doctor, sorted newest-first, with the aggregate averageRating inlined.",
+        "description": "Paginated patient reviews for an active doctor, sorted newest-first, with the aggregate average rating.",
         "operationId": "ReviewsController_listDoctorReviews",
         "parameters": [
           {
@@ -3086,10 +3100,10 @@
         ],
         "responses": {
           "200": {
-            "description": "Paginated reviews + aggregate rating."
+            "description": "Paginated reviews and average rating."
           },
           "404": {
-            "description": "Doctor not found."
+            "description": "Active doctor not found."
           },
           "429": {
             "description": "Rate limit exceeded."
@@ -3105,7 +3119,46 @@
       "get": {
         "description": "Paginated list of all reviews. Optional filters: doctorId, userId.",
         "operationId": "AdminReviewsController_listReviews",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "1-based page number.",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (1-100).",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "doctorId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by doctor id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by patient user id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Paginated list of reviews."
@@ -3975,7 +4028,7 @@
     "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, navigate the browser to `GET /api/oauth/google?callbackURL=/dashboard` (or `facebook`). The state cookie is set on the 302 response, so the callback succeeds without a cookie race condition. Use it as a direct link: `<a href=\"/api/oauth/google?callbackURL=/dashboard\">Sign in with Google</a>`.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `doctor-services` — per-doctor service catalog (admin)\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
     "version": "0.0.1",
     "contact": {},
-    "x-generated-at": "2026-07-25T20:37:06.224Z"
+    "x-generated-at": "2026-07-26T12:30:59.368Z"
   },
   "tags": [
     {
@@ -4101,6 +4154,103 @@
             ]
           }
         }
+      },
+      "AppointmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier."
+          },
+          "status": {
+            "type": "string",
+            "description": "Lifecycle status.",
+            "enum": [
+              "PENDING",
+              "CONFIRMED",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "scheduledAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "When the appointment is scheduled (UTC)."
+          },
+          "patientNotes": {
+            "type": "object",
+            "description": "Patient-supplied notes (e.g. reason for visit)."
+          },
+          "cancelledAt": {
+            "type": "object",
+            "description": "When the appointment was cancelled, or null."
+          },
+          "cancelledBy": {
+            "type": "string",
+            "description": "Who cancelled the appointment, or null.",
+            "enum": [
+              "USER",
+              "ADMIN"
+            ]
+          },
+          "doctor": {
+            "type": "object",
+            "description": "The doctor this appointment is with."
+          },
+          "hasReview": {
+            "type": "boolean",
+            "description": "Whether the patient has already submitted a review for this appointment."
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp."
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last-update timestamp."
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "scheduledAt",
+          "doctor",
+          "hasReview",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ListMyAppointmentsResult": {
+        "type": "object",
+        "properties": {
+          "appointments": {
+            "description": "Paginated appointments.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppointmentResponseDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total matching rows."
+          },
+          "page": {
+            "type": "number",
+            "description": "1-based page number."
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Items per page."
+          }
+        },
+        "required": [
+          "appointments",
+          "total",
+          "page",
+          "pageSize"
+        ]
       },
       "BookAppointmentDto": {
         "type": "object",

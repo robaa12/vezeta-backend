@@ -63,7 +63,7 @@ describeMaybe('Auth e2e', () => {
     const password = 'Password123!';
     const name = 'Test User';
 
-    it('POST /api/auth/sign-up/email creates a user and returns session', async () => {
+    it('POST /api/auth/sign-up/email creates a pending user without a session', async () => {
       const res = await request(server)
         .post('/api/auth/sign-up/email')
         .send({ name, email, password, role: 'user' });
@@ -73,7 +73,7 @@ describeMaybe('Auth e2e', () => {
       expect(body.user.email).toBe(email);
       expect(body.user.role).toBe('user');
       expect(body.user.emailVerified).toBe(false);
-      expect(res.headers['set-cookie']).toBeDefined();
+      expect(res.headers['set-cookie']).toBeUndefined();
     });
 
     it('strips role on sign-up: "admin" is never honoured', async () => {
@@ -104,11 +104,11 @@ describeMaybe('Auth e2e', () => {
       expect(body.user.role).toBe('user');
     });
 
-    it('rejects duplicate email', async () => {
+    it('does not reveal whether a sign-up email already exists', async () => {
       const res = await request(server)
         .post('/api/auth/sign-up/email')
         .send({ name, email, password, role: 'user' });
-      expect(res.status).toBe(409);
+      expect(res.status).toBe(200);
     });
 
     it('POST /api/auth/email-otp/send-verification-otp sends OTP', async () => {
@@ -123,6 +123,16 @@ describeMaybe('Auth e2e', () => {
         .post('/api/auth/sign-in/email')
         .send({ email, password: 'wrongpassword' });
       expect(res.status).toBe(401);
+    });
+
+    it('blocks password sign-in until the email OTP is verified', async () => {
+      const res = await request(server)
+        .post('/api/auth/sign-in/email')
+        .send({ email, password });
+      expect(res.status).toBe(403);
+      const body = res.body as { code?: string };
+      expect(body.code).toBe('EMAIL_NOT_VERIFIED');
+      expect(res.headers['set-cookie']).toBeUndefined();
     });
   });
 

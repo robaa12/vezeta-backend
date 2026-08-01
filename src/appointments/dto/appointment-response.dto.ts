@@ -11,6 +11,11 @@ export interface PublicDoctorRef {
   category: PublicCategoryRef;
 }
 
+export interface PublicPatientRef {
+  id: string;
+  name: string;
+}
+
 export class AppointmentResponseDto {
   @ApiProperty({ description: 'Unique identifier.' })
   id!: string;
@@ -42,6 +47,17 @@ export class AppointmentResponseDto {
 
   @ApiProperty({ description: 'The doctor this appointment is with.' })
   doctor!: PublicDoctorRef;
+
+  @ApiPropertyOptional({
+    description: 'Patient reference included in admin appointment responses.',
+  })
+  patient?: PublicPatientRef;
+
+  @ApiProperty({
+    description:
+      'Whether the patient has already submitted a review for this appointment.',
+  })
+  hasReview!: boolean;
 
   @ApiProperty({ description: 'Creation timestamp.' })
   createdAt!: Date;

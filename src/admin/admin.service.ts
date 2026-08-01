@@ -46,6 +46,7 @@ export interface DoctorRecord {
   location: DoctorLocation;
   status: 'ACTIVE' | 'DEACTIVATED';
   services: DoctorServiceRef[];
+  serviceCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -139,7 +140,10 @@ export class AdminService {
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: { category: { select: { id: true, name: true } } },
+        include: {
+          category: { select: { id: true, name: true } },
+          _count: { select: { services: true } },
+        },
       }),
       this.prisma.doctor.count({ where }),
     ]);
@@ -265,6 +269,37 @@ export class AdminService {
     void this.audit.record({
       actorId,
       action: 'doctor.deactivate',
+      entityType: 'doctor',
+      entityId: id,
+    });
+
+    return this.toDoctorRecord(updated);
+  }
+
+  async activateDoctor(id: string, actorId: string): Promise<DoctorRecord> {
+    const existing = await this.prisma.doctor.findUnique({
+      where: { id },
+      include: { category: { select: { id: true, name: true } } },
+    });
+    if (!existing) {
+      throw new NotFoundException('Doctor not found');
+    }
+    if (existing.status === 'ACTIVE') {
+      throw new ConflictException({
+        message: 'Doctor is already active',
+        error: 'already_active',
+      });
+    }
+
+    const updated = await this.prisma.doctor.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+      include: { category: { select: { id: true, name: true } } },
+    });
+
+    void this.audit.record({
+      actorId,
+      action: 'doctor.activate',
       entityType: 'doctor',
       entityId: id,
     });
@@ -517,6 +552,34 @@ export class AdminService {
     return updated;
   }
 
+  async activateUser(
+    userId: string,
+    actorId: string,
+  ): Promise<{ id: string; isActive: boolean; name: string; email: string }> {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, isActive: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive: true },
+      select: { id: true, isActive: true, name: true, email: true },
+    });
+
+    void this.audit.record({
+      actorId,
+      action: 'user.activate',
+      entityType: 'user',
+      entityId: userId,
+    });
+
+    return updated;
+  }
+
   // ---------------- Dashboard stats ----------------
 
   /**
@@ -631,6 +694,7 @@ export class AdminService {
       discountPercent: number | null;
       status: string;
     }>;
+    _count?: { services: number };
   }): DoctorRecord {
     return {
       id: d.id,
@@ -659,6 +723,7 @@ export class AdminService {
           status: s.status as DoctorServiceRef['status'],
         };
       }),
+      serviceCount: d._count?.services ?? d.services?.length ?? 0,
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
     };

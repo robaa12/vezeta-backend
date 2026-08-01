@@ -156,6 +156,24 @@ describe('AppointmentsService — listPublicSlots (US1)', () => {
     const result = await service.listPublicSlots('d1');
     expect(result.slots).toEqual([]);
   });
+
+  it('queries only future AVAILABLE slots', async () => {
+    (prisma['doctorSlot'].findMany as jest.Mock).mockResolvedValueOnce([]);
+    (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce({
+      status: 'ACTIVE',
+      category: { status: 'ACTIVE' },
+    });
+
+    await service.listPublicSlots('d1');
+
+    expect(prisma['doctorSlot'].findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          startsAt: { gt: expect.any(Date) },
+        }),
+      }),
+    );
+  });
 });
 
 describe('AppointmentsService — admin slot CRUD (US8)', () => {
@@ -168,6 +186,7 @@ describe('AppointmentsService — admin slot CRUD (US8)', () => {
       doctor: { findUnique: jest.fn() },
       doctorSlot: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         findUnique: jest.fn(),
         findUniqueOrThrow: jest.fn(),
         count: jest.fn(),
@@ -281,7 +300,7 @@ describe('AppointmentsService — admin slot CRUD (US8)', () => {
   });
 
   it('blockSlot is idempotent for an already-BLOCKED slot', async () => {
-    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+    (prisma['doctorSlot'].findFirst as jest.Mock).mockResolvedValueOnce({
       id: 's1',
       doctorId: 'd1',
       status: 'BLOCKED',
@@ -296,7 +315,7 @@ describe('AppointmentsService — admin slot CRUD (US8)', () => {
   });
 
   it('blockSlot rejects a BOOKED slot (409)', async () => {
-    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+    (prisma['doctorSlot'].findFirst as jest.Mock).mockResolvedValueOnce({
       id: 's1',
       doctorId: 'd1',
       status: 'BOOKED',
@@ -319,7 +338,67 @@ describe('AppointmentsService — admin slot CRUD (US8)', () => {
       updatedAt: new Date(),
     });
     await expect(service.deleteSlot('s1')).rejects.toThrow(ConflictException);
+    expect(prisma['doctorSlot'].updateMany).not.toHaveBeenCalled();
+  });
+
+  it('deleteSlot hides an AVAILABLE slot without deleting appointment history', async () => {
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+      doctorId: 'd1',
+      status: 'AVAILABLE',
+      startsAt: new Date(),
+      endsAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    (prisma['doctorSlot'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+
+    await expect(service.deleteSlot('s1')).resolves.toBeUndefined();
+    expect(prisma['doctorSlot'].updateMany).toHaveBeenCalledWith({
+      where: { id: 's1', status: { in: ['AVAILABLE', 'BLOCKED'] } },
+      data: { status: 'DELETED' },
+    });
     expect(prisma['doctorSlot'].delete).not.toHaveBeenCalled();
+  });
+
+  it('deleteSlot hides a BLOCKED slot', async () => {
+    (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+      doctorId: 'd1',
+      status: 'BLOCKED',
+      startsAt: new Date(),
+      endsAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    (prisma['doctorSlot'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 1,
+    });
+
+    await expect(service.deleteSlot('s1')).resolves.toBeUndefined();
+    expect(prisma['doctorSlot'].updateMany).toHaveBeenCalledWith({
+      where: { id: 's1', status: { in: ['AVAILABLE', 'BLOCKED'] } },
+      data: { status: 'DELETED' },
+    });
+  });
+
+  it('listAdminSlots excludes deleted slots from unfiltered results', async () => {
+    (prisma['doctorSlot'].findMany as jest.Mock).mockResolvedValueOnce([]);
+    (prisma['doctorSlot'].count as jest.Mock).mockResolvedValueOnce(0);
+
+    await service.listAdminSlots({});
+
+    const expectedWhere = {
+      status: { in: ['AVAILABLE', 'BOOKED', 'BLOCKED'] },
+    };
+    expect(prisma['doctorSlot'].findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(prisma['doctorSlot'].count).toHaveBeenCalledWith({
+      where: expectedWhere,
+    });
   });
 });
 
@@ -644,6 +723,65 @@ describe('AppointmentsService — listMyAppointments (US4)', () => {
       skip: 0,
       take: 20,
       orderBy: { scheduledAt: 'asc' },
+    });
+  });
+
+  it('reports whether each completed appointment already has a review', async () => {
+    const appointment = {
+      id: 'a1',
+      status: 'COMPLETED',
+      scheduledAt: new Date('2026-07-01T09:00:00Z'),
+      patientNotes: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      createdAt: new Date('2026-06-01T09:00:00Z'),
+      updatedAt: new Date('2026-07-01T10:00:00Z'),
+      doctor: {
+        id: 'd1',
+        name: 'Dr. X',
+        category: { id: 'c1', name: 'Cardiology' },
+      },
+      review: { id: 'r1' },
+    };
+    (prisma['appointment'].findMany as jest.Mock).mockResolvedValueOnce([
+      appointment,
+    ]);
+    (prisma['appointment'].count as jest.Mock).mockResolvedValueOnce(1);
+
+    const result = await service.listMyAppointments('u1', {});
+
+    expect(result.appointments[0]?.hasReview).toBe(true);
+    const select = (prisma['appointment'].findMany as jest.Mock).mock
+      .calls[0]?.[0]?.select;
+    expect(select).toMatchObject({ review: { select: { id: true } } });
+  });
+
+  it('includes the patient name in an admin appointment response', async () => {
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'COMPLETED',
+      scheduledAt: new Date('2026-07-27T09:00:00Z'),
+      patientNotes: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      createdAt: new Date('2026-07-01T09:00:00Z'),
+      updatedAt: new Date('2026-07-27T10:00:00Z'),
+      doctor: {
+        id: 'd1',
+        name: 'Dr. X',
+        category: { id: 'c1', name: 'Cardiology' },
+      },
+      user: { id: 'u1', name: 'Patient Name' },
+      review: null,
+    });
+
+    const result = await service.getAdminAppointment('a1');
+
+    expect(result.patient).toEqual({ id: 'u1', name: 'Patient Name' });
+    const select = (prisma['appointment'].findUnique as jest.Mock).mock
+      .calls[0]?.[0]?.select as Record<string, unknown>;
+    expect(select).toMatchObject({
+      user: { select: { id: true, name: true } },
     });
   });
 });
