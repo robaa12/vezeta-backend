@@ -2,7 +2,13 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { json, static as expressStatic } from 'express';
+import {
+  json,
+  static as expressStatic,
+  type NextFunction,
+  type Request,
+  type Response,
+} from 'express';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import helmet from 'helmet';
@@ -129,7 +135,17 @@ async function bootstrap(): Promise<void> {
 
   // Serve uploaded files under /uploads/ so clients can fetch
   // doctor images, etc. directly via the API server.
-  app.use('/uploads', expressStatic(join(process.cwd(), 'uploads')));
+  app.use(
+    '/uploads',
+    (_request: Request, response: Response, next: NextFunction) => {
+      // The browser frontend commonly runs on a different origin/port from
+      // the API. Override Helmet's default same-origin CORP header only for
+      // public uploaded assets so they can be embedded by that frontend.
+      response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      next();
+    },
+    expressStatic(join(process.cwd(), 'uploads')),
+  );
 
   await app.listen(port);
   structuredLogger.log(`Vezeeta backend listening on :${port}`, 'Bootstrap');

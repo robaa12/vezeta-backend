@@ -74,7 +74,7 @@ export class AppointmentListener {
     await this.notifications.enqueue({
       userId: payload.userId,
       title: 'How was your visit?',
-      body: `Your appointment with ${payload.doctorName} is complete. Leave a review to help other patients.`,
+      body: `Your appointment with ${payload.doctorName} is complete. Leave a review to share your experience.`,
       metadata: {
         kind: 'appointment.completed',
         appointmentId: payload.appointmentId,

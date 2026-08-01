@@ -33,7 +33,7 @@ import { RolesGuard } from '../common/guards/roles.guard.js';
 import type { SessionUser } from '../common/interfaces/session.interface.js';
 import { ReviewsService } from './reviews.service.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
-import { ListReviewsDto } from './dto/list-reviews.dto.js';
+import { ListAdminReviewsDto, ListReviewsDto } from './dto/list-reviews.dto.js';
 import type {
   ListReviewsResult,
   ReviewResponseDto,
@@ -75,11 +75,6 @@ export class ReviewsController {
     return this.reviewsService.createReview(user.id, id, body);
   }
 
-  /**
-   * Public paginated list of a doctor's reviews with the aggregate
-   * rating inlined. Cache-Control + throttler hints similar to the
-   * other public catalog endpoints.
-   */
   @Get('doctors/:id/reviews')
   @AllowAnonymous()
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
@@ -87,11 +82,11 @@ export class ReviewsController {
   @ApiOperation({
     summary: "List a doctor's reviews (public)",
     description:
-      'Paginated list of reviews for a doctor, sorted newest-first, with the aggregate averageRating inlined.',
+      'Paginated patient reviews for an active doctor, sorted newest-first, with the aggregate average rating.',
   })
   @ApiParam({ name: 'id', description: 'Doctor id (cuid)' })
-  @ApiOkResponse({ description: 'Paginated reviews + aggregate rating.' })
-  @ApiNotFoundResponse({ description: 'Doctor not found.' })
+  @ApiOkResponse({ description: 'Paginated reviews and average rating.' })
+  @ApiNotFoundResponse({ description: 'Active doctor not found.' })
   @ApiTooManyRequestsResponse({ description: 'Rate limit exceeded.' })
   listDoctorReviews(
     @Param('id') id: string,
@@ -119,15 +114,7 @@ export class AdminReviewsController {
       'Paginated list of all reviews. Optional filters: doctorId, userId.',
   })
   @ApiOkResponse({ description: 'Paginated list of reviews.' })
-  listReviews(
-    @Query()
-    query: {
-      doctorId?: string;
-      userId?: string;
-      page?: number;
-      pageSize?: number;
-    },
-  ): Promise<ListReviewsResult> {
+  listReviews(@Query() query: ListAdminReviewsDto): Promise<ListReviewsResult> {
     return this.reviewsService.listAdminReviews(query);
   }
 

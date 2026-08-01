@@ -76,6 +76,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Create a non-root user and own the app dir
 RUN groupadd --system --gid 1001 nodejs \
  && useradd --system --uid 1001 --gid nodejs nestjs \
+ && mkdir -p /app/uploads/doctors \
  && chown -R nestjs:nodejs /app
 USER nestjs
 

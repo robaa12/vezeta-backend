@@ -55,6 +55,21 @@ import type {
 export class AdminMedicalRecordsController {
   constructor(private readonly medicalRecords: MedicalRecordsService) {}
 
+  @Get()
+  @ApiOperation({
+    summary: 'Get the medical record for an appointment (admin)',
+  })
+  @ApiParam({ name: 'id', description: 'Appointment id (cuid)' })
+  @ApiOkResponse({
+    description:
+      'Medical record lookup. Returns medicalRecord: null when no record exists yet.',
+  })
+  get(
+    @Param('id') id: string,
+  ): Promise<{ medicalRecord: MedicalRecordResponseDto | null }> {
+    return this.medicalRecords.getForAdmin(id);
+  }
+
   @Post()
   @ApiOperation({
     summary: 'Create a medical record for a COMPLETED appointment (admin)',

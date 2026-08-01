@@ -38,6 +38,8 @@ export interface PublicDoctorListItem {
   name: string;
   category: PublicCategoryRef;
   imageUrl: string | null;
+  averageRating: number | null;
+  reviewCount: number;
   status: 'ACTIVE' | 'DEACTIVATED';
 }
 
@@ -46,6 +48,11 @@ export interface ListPublicDoctorsResult {
   total: number;
   page: number;
   pageSize: number;
+}
+
+interface DoctorRatingAggregate {
+  averageRating: number | null;
+  reviewCount: number;
 }
 
 @Injectable()
@@ -79,25 +86,51 @@ export class DoctorsService {
       ];
     }
 
-    const [records, total] = await Promise.all([
-      this.prisma.doctor.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          name: true,
-          imageUrl: true,
-          status: true,
-          category: { select: { id: true, name: true } },
-        },
-      }),
-      this.prisma.doctor.count({ where }),
+    const recordsPromise = this.prisma.doctor.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        name: true,
+        imageUrl: true,
+        status: true,
+        category: { select: { id: true, name: true } },
+      },
+    });
+    const totalPromise = this.prisma.doctor.count({ where });
+    const records = await recordsPromise;
+
+    // Fetch one aggregate row per listed doctor. This keeps ratings on the
+    // catalog response without loading every review or creating N+1 queries.
+    const ratingsPromise =
+      records.length === 0
+        ? Promise.resolve([])
+        : this.prisma.review.groupBy({
+            by: ['doctorId'],
+            where: { doctorId: { in: records.map((record) => record.id) } },
+            _avg: { rating: true },
+            _count: { _all: true },
+          });
+    const [total, ratingRows] = await Promise.all([
+      totalPromise,
+      ratingsPromise,
     ]);
+    const ratingsByDoctor = new Map<string, DoctorRatingAggregate>(
+      ratingRows.map((row): [string, DoctorRatingAggregate] => [
+        row.doctorId,
+        {
+          averageRating: row._avg.rating,
+          reviewCount: row._count._all,
+        },
+      ]),
+    );
 
     return {
-      doctors: records.map((r) => this.toListItem(r)),
+      doctors: records.map((record) =>
+        this.toListItem(record, ratingsByDoctor.get(record.id)),
+      ),
       total,
       page,
       pageSize,
@@ -126,17 +159,22 @@ export class DoctorsService {
     return doctor ? this.toPublicRecord(doctor) : null;
   }
 
-  private toListItem(d: {
-    id: string;
-    name: string;
-    imageUrl: string | null;
-    status: string;
-    category: { id: string; name: string };
-  }): PublicDoctorListItem {
+  private toListItem(
+    d: {
+      id: string;
+      name: string;
+      imageUrl: string | null;
+      status: string;
+      category: { id: string; name: string };
+    },
+    rating?: DoctorRatingAggregate,
+  ): PublicDoctorListItem {
     return {
       id: d.id,
       name: d.name,
       imageUrl: d.imageUrl,
+      averageRating: rating?.averageRating ?? null,
+      reviewCount: rating?.reviewCount ?? 0,
       status: d.status as PublicDoctorListItem['status'],
       category: {
         id: d.category.id,

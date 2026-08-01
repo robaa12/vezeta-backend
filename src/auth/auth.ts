@@ -100,6 +100,10 @@ export const createAuth = (
     emailAndPassword: {
       enabled: true,
       autoSignIn: true,
+      // A credential account remains pending until its email OTP is
+      // verified. Better Auth will not create a session at sign-up and
+      // rejects password sign-in while emailVerified is false.
+      requireEmailVerification: true,
       minPasswordLength: MIN_PASSWORD_LENGTH,
       revokeSessionsOnPasswordReset: true,
     },
@@ -218,6 +222,9 @@ export const createAuth = (
           await emailService.sendOtp(data);
         },
         sendVerificationOnSignUp: true,
+        // Make the OTP plugin the implementation used by Better Auth's
+        // required email-verification flow (instead of a link email).
+        overrideDefaultEmailVerification: true,
       }),
       phoneNumber({
         otpLength: OTP_LENGTH,

@@ -187,6 +187,37 @@ describe('MedicalRecordsService', () => {
     });
   });
 
+  describe('getForAdmin', () => {
+    it('returns null when the appointment has no medical record yet', async () => {
+      (prisma['medicalRecord'].findUnique as jest.Mock).mockResolvedValueOnce(
+        null,
+      );
+
+      await expect(service.getForAdmin('a1')).resolves.toEqual({
+        medicalRecord: null,
+      });
+    });
+
+    it('returns the existing medical record', async () => {
+      (prisma['medicalRecord'].findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'mr1',
+        appointmentId: 'a1',
+        patientId: 'u1',
+        doctorId: 'd1',
+        notes: 'notes',
+        attachmentUrls: [],
+        createdById: 'admin1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        doctor: { id: 'd1', name: 'Dr. X' },
+      });
+
+      const result = await service.getForAdmin('a1');
+
+      expect(result.medicalRecord?.id).toBe('mr1');
+    });
+  });
+
   describe('listMyHistory', () => {
     it('filters by patientId', async () => {
       (prisma['medicalRecord'].findMany as jest.Mock).mockResolvedValueOnce([]);

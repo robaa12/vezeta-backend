@@ -10,6 +10,9 @@ const mockPrisma = () => {
       findFirst: jest.fn(),
       count: jest.fn(),
     },
+    review: {
+      groupBy: jest.fn(),
+    },
   };
 };
 
@@ -32,6 +35,7 @@ describe('DoctorsService — listPublicDoctors', () => {
 
   beforeEach(async () => {
     prisma = mockPrisma();
+    prisma.review.groupBy.mockResolvedValue([]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [DoctorsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
@@ -49,6 +53,42 @@ describe('DoctorsService — listPublicDoctors', () => {
     expect(result.doctors[0]?.category).toEqual({
       id: 'cat1',
       name: 'Cardiology',
+    });
+    expect(result.doctors[0]).toMatchObject({
+      averageRating: null,
+      reviewCount: 0,
+    });
+  });
+
+  it('returns the average rating and review count for every listed doctor', async () => {
+    prisma.doctor.findMany.mockResolvedValueOnce([
+      baseRecord,
+      { ...baseRecord, id: 'd2', name: 'Dr. John Doe' },
+    ]);
+    prisma.doctor.count.mockResolvedValueOnce(2);
+    prisma.review.groupBy.mockResolvedValueOnce([
+      {
+        doctorId: 'd1',
+        _avg: { rating: 4.5 },
+        _count: { _all: 2 },
+      },
+    ]);
+
+    const result = await service.listPublicDoctors({});
+
+    expect(prisma.review.groupBy).toHaveBeenCalledWith({
+      by: ['doctorId'],
+      where: { doctorId: { in: ['d1', 'd2'] } },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    expect(result.doctors[0]).toMatchObject({
+      averageRating: 4.5,
+      reviewCount: 2,
+    });
+    expect(result.doctors[1]).toMatchObject({
+      averageRating: null,
+      reviewCount: 0,
     });
   });
 

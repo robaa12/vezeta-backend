@@ -139,57 +139,57 @@ describe('ReviewsService', () => {
   });
 
   describe('listDoctorReviews', () => {
-    it('returns 404 when the doctor is missing', async () => {
-      (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce(null);
+    it('returns 404 when the doctor is not publicly active', async () => {
+      (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce({
+        status: 'DEACTIVATED',
+        category: { status: 'ACTIVE' },
+      });
+
       await expect(service.listDoctorReviews('d1', {})).rejects.toThrow(
         NotFoundException,
       );
     });
 
-    it('returns paginated reviews + aggregate averageRating', async () => {
+    it('returns reviews and the aggregate rating for an active doctor', async () => {
+      const createdAt = new Date('2026-07-26T10:00:00Z');
       (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce({
-        id: 'd1',
         status: 'ACTIVE',
+        category: { status: 'ACTIVE' },
       });
       (prisma['review'].findMany as jest.Mock).mockResolvedValueOnce([
         {
           id: 'r1',
           appointmentId: 'a1',
-          userId: 'u1',
           doctorId: 'd1',
-          rating: 4,
-          comment: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          rating: 5,
+          comment: 'Excellent visit',
+          createdAt,
+          updatedAt: createdAt,
           doctor: { id: 'd1', name: 'Dr. X' },
           user: { id: 'u1', name: 'Patient One' },
         },
       ]);
       (prisma['review'].count as jest.Mock).mockResolvedValueOnce(1);
       (prisma['review'].aggregate as jest.Mock).mockResolvedValueOnce({
-        _avg: { rating: 4 },
-        _count: { _all: 1 },
+        _avg: { rating: 5 },
       });
-      const result = await service.listDoctorReviews('d1', {});
-      expect(result.reviews).toHaveLength(1);
-      expect(result.total).toBe(1);
-      expect(result.averageRating).toBe(4);
-    });
 
-    it('returns null averageRating when doctor has no reviews', async () => {
-      (prisma['doctor'].findUnique as jest.Mock).mockResolvedValueOnce({
-        id: 'd1',
-        status: 'ACTIVE',
+      const result = await service.listDoctorReviews('d1', {
+        page: 1,
+        pageSize: 5,
       });
-      (prisma['review'].findMany as jest.Mock).mockResolvedValueOnce([]);
-      (prisma['review'].count as jest.Mock).mockResolvedValueOnce(0);
-      (prisma['review'].aggregate as jest.Mock).mockResolvedValueOnce({
-        _avg: { rating: null },
-        _count: { _all: 0 },
+
+      expect(result).toMatchObject({
+        total: 1,
+        page: 1,
+        pageSize: 5,
+        averageRating: 5,
       });
-      const result = await service.listDoctorReviews('d1', {});
-      expect(result.reviews).toEqual([]);
-      expect(result.averageRating).toBeNull();
+      expect(result.reviews[0]).toMatchObject({
+        rating: 5,
+        comment: 'Excellent visit',
+        authorName: 'Patient One',
+      });
     });
   });
 

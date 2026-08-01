@@ -30,8 +30,8 @@ import { CreateSlotDto } from '../appointments/dto/create-slot.dto.js';
 import { UpdateSlotDto } from '../appointments/dto/update-slot.dto.js';
 import { ListAdminSlotsDto } from '../appointments/dto/list-admin-slots.dto.js';
 import { ListAdminAppointmentsDto } from '../appointments/dto/list-admin-appointments.dto.js';
-import type {
-  AppointmentResponseDto,
+import {
+  type AppointmentResponseDto,
   ListMyAppointmentsResult,
 } from '../appointments/dto/appointment-response.dto.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
@@ -149,13 +149,13 @@ export class AdminAppointmentsController {
 
   @Delete('slots/:id')
   @HttpCode(204)
-  @ApiOperation({ summary: 'Hard-delete an AVAILABLE slot (admin)' })
+  @ApiOperation({ summary: 'Delete an AVAILABLE slot (admin)' })
   @ApiParam({ name: 'id', description: 'Slot id (cuid)' })
   @ApiNoContentResponse({ description: 'Slot deleted.' })
   @ApiNotFoundResponse({ description: 'Slot not found.' })
   @ApiConflictResponse({
     description:
-      'Slot is BOOKED or BLOCKED — only AVAILABLE slots can be deleted.',
+      'Slot is no longer AVAILABLE — only AVAILABLE slots can be deleted.',
   })
   async deleteSlot(
     @Param('id') id: string,
@@ -254,7 +254,10 @@ export class AdminAppointmentsController {
     description:
       'Paginated list of all appointments, filterable by status, userId, doctorId.',
   })
-  @ApiOkResponse({ description: 'Paginated list of appointments.' })
+  @ApiOkResponse({
+    description: 'Paginated list of appointments.',
+    type: ListMyAppointmentsResult,
+  })
   listAppointments(
     @Query() query: ListAdminAppointmentsDto,
   ): Promise<ListMyAppointmentsResult> {
