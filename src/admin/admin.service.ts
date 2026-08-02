@@ -64,6 +64,10 @@ export interface UserRecord {
   updatedAt: Date;
 }
 
+type DoctorWithCategory = Prisma.DoctorGetPayload<{
+  include: { category: { select: { id: true; name: true } } };
+}>;
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -93,7 +97,7 @@ export class AdminService {
     this.assertCoordinatesConsistent(dto.latitude, dto.longitude);
 
     const imageUrl = image ? await saveDoctorImage(image) : null;
-    let created;
+    let created: DoctorWithCategory;
     try {
       created = await this.prisma.doctor.create({
         data: {
@@ -232,7 +236,7 @@ export class AdminService {
     if (Object.keys(data).length === 0) {
       throw new ConflictException('No fields to update');
     }
-    let updated;
+    let updated: DoctorWithCategory;
     try {
       updated = await this.prisma.doctor.update({
         where: { id },

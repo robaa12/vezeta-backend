@@ -794,7 +794,7 @@ describe('AppointmentsService — listMyAppointments (US4)', () => {
 
     expect(result.appointments[0]?.hasReview).toBe(true);
     const select = (prisma['appointment'].findMany as jest.Mock).mock
-      .calls[0]?.[0]?.select;
+      .calls[0]?.[0]?.select as Record<string, unknown>;
     expect(select).toMatchObject({ review: { select: { id: true } } });
   });
 
@@ -1335,9 +1335,7 @@ describe('AppointmentsService — completeAppointment (US7)', () => {
     (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
       count: 0,
     });
-    (
-      prisma['appointment'].findUnique as jest.Mock
-    ).mockResolvedValueOnce({
+    (prisma['appointment'].findUnique as jest.Mock).mockResolvedValueOnce({
       id: 'a1',
       status: 'CONFIRMED',
       scheduledAt: new Date(Date.now() + 3600_000),
