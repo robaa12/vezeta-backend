@@ -454,6 +454,11 @@
                             },
                             "description": "Per-doctor service catalog (admin view)."
                           },
+                          "serviceCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Total number of services configured for this doctor."
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time"
@@ -468,6 +473,7 @@
                           "name",
                           "category",
                           "status",
+                          "serviceCount",
                           "createdAt",
                           "updatedAt"
                         ]
@@ -606,6 +612,11 @@
                           },
                           "description": "Per-doctor service catalog (admin view)."
                         },
+                        "serviceCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Total number of services configured for this doctor."
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
@@ -620,6 +631,7 @@
                         "name",
                         "category",
                         "status",
+                        "serviceCount",
                         "createdAt",
                         "updatedAt"
                       ]
@@ -726,6 +738,11 @@
                           },
                           "description": "Per-doctor service catalog (admin view)."
                         },
+                        "serviceCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Total number of services configured for this doctor."
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
@@ -740,6 +757,7 @@
                         "name",
                         "category",
                         "status",
+                        "serviceCount",
                         "createdAt",
                         "updatedAt"
                       ]
@@ -883,6 +901,11 @@
                           },
                           "description": "Per-doctor service catalog (admin view)."
                         },
+                        "serviceCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Total number of services configured for this doctor."
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
@@ -897,6 +920,7 @@
                         "name",
                         "category",
                         "status",
+                        "serviceCount",
                         "createdAt",
                         "updatedAt"
                       ]
@@ -1043,6 +1067,11 @@
                           },
                           "description": "Per-doctor service catalog (admin view)."
                         },
+                        "serviceCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Total number of services configured for this doctor."
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
@@ -1057,6 +1086,7 @@
                         "name",
                         "category",
                         "status",
+                        "serviceCount",
                         "createdAt",
                         "updatedAt"
                       ]
@@ -1088,6 +1118,135 @@
           }
         ],
         "summary": "Soft-deactivate a doctor",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/doctors/{id}/activate": {
+      "patch": {
+        "operationId": "AdminController_activateDoctor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Doctor id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Doctor activated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "doctor": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Doctor id (cuid)."
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Doctor's full display name."
+                        },
+                        "category": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ]
+                        },
+                        "bio": {
+                          "type": "string",
+                          "nullable": true,
+                          "description": "Short biography / about section."
+                        },
+                        "imageUrl": {
+                          "type": "string",
+                          "nullable": true,
+                          "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
+                          "example": "/uploads/doctors/clx123abc.jpg"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "ACTIVE",
+                            "DEACTIVATED"
+                          ]
+                        },
+                        "services": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          },
+                          "description": "Per-doctor service catalog (admin view)."
+                        },
+                        "serviceCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Total number of services configured for this doctor."
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "category",
+                        "status",
+                        "serviceCount",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "doctor"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "Doctor not found."
+          },
+          "409": {
+            "description": "Doctor is already active."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Activate a doctor",
         "tags": [
           "admin"
         ]
@@ -1212,6 +1371,45 @@
           }
         ],
         "summary": "Deactivate a user account",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{id}/activate": {
+      "patch": {
+        "operationId": "AdminController_activateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          },
+          "404": {
+            "description": "User not found."
+          },
+          "409": {
+            "description": "User is already active."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Activate a user account",
         "tags": [
           "admin"
         ]
@@ -1630,7 +1828,7 @@
             "description": "Slot not found."
           },
           "409": {
-            "description": "Slot is BOOKED or BLOCKED — only AVAILABLE slots can be deleted."
+            "description": "Slot is no longer AVAILABLE — only AVAILABLE slots can be deleted."
           }
         },
         "security": [
@@ -1638,7 +1836,7 @@
             "vezeta.session_token": []
           }
         ],
-        "summary": "Hard-delete an AVAILABLE slot (admin)",
+        "summary": "Delete an AVAILABLE slot (admin)",
         "tags": [
           "admin"
         ]
@@ -2213,6 +2411,20 @@
                               "name"
                             ]
                           },
+                          "imageUrl": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "averageRating": {
+                            "type": "number",
+                            "nullable": true,
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "reviewCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -2225,6 +2437,9 @@
                           "id",
                           "name",
                           "category",
+                          "imageUrl",
+                          "averageRating",
+                          "reviewCount",
                           "status"
                         ]
                       }
@@ -3354,6 +3569,40 @@
       }
     },
     "/api/admin/appointments/{id}/medical-record": {
+      "get": {
+        "operationId": "AdminMedicalRecordsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Appointment id (cuid)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Medical record lookup. Returns medicalRecord: null when no record exists yet."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "403": {
+            "description": "Requires the admin role."
+          }
+        },
+        "security": [
+          {
+            "vezeta.session_token": []
+          }
+        ],
+        "summary": "Get the medical record for an appointment (admin)",
+        "tags": [
+          "admin"
+        ]
+      },
       "post": {
         "operationId": "AdminMedicalRecordsController_create",
         "parameters": [
@@ -4028,7 +4277,7 @@
     "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, navigate the browser to `GET /api/oauth/google?callbackURL=/dashboard` (or `facebook`). The state cookie is set on the 302 response, so the callback succeeds without a cookie race condition. Use it as a direct link: `<a href=\"/api/oauth/google?callbackURL=/dashboard\">Sign in with Google</a>`.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `doctor-services` — per-doctor service catalog (admin)\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
     "version": "0.0.1",
     "contact": {},
-    "x-generated-at": "2026-07-26T12:30:59.368Z"
+    "x-generated-at": "2026-08-02T14:17:00.772Z"
   },
   "tags": [
     {
@@ -4196,6 +4445,10 @@
           "doctor": {
             "type": "object",
             "description": "The doctor this appointment is with."
+          },
+          "patient": {
+            "type": "object",
+            "description": "Patient reference included in admin appointment responses."
           },
           "hasReview": {
             "type": "boolean",
