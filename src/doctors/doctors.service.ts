@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ListPublicDoctorsDto } from './dto/list-doctors.dto.js';
+import { buildGoogleMapsUrl } from './doctor-location.js';
 
 export interface PublicCategoryRef {
   id: string;
@@ -15,12 +16,20 @@ export interface PublicDoctorServiceRef {
   finalPrice: number | null;
 }
 
+export interface PublicDoctorLocation {
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  googleMapsUrl: string | null;
+}
+
 export interface PublicDoctorRecord {
   id: string;
   name: string;
   category: PublicCategoryRef;
   bio: string | null;
   imageUrl: string | null;
+  location: PublicDoctorLocation;
   status: 'ACTIVE' | 'DEACTIVATED';
   services: PublicDoctorServiceRef[];
   createdAt: Date;
@@ -38,6 +47,7 @@ export interface PublicDoctorListItem {
   name: string;
   category: PublicCategoryRef;
   imageUrl: string | null;
+  location: PublicDoctorLocation;
   averageRating: number | null;
   reviewCount: number;
   status: 'ACTIVE' | 'DEACTIVATED';
@@ -96,6 +106,9 @@ export class DoctorsService {
         id: true,
         name: true,
         imageUrl: true,
+        address: true,
+        latitude: true,
+        longitude: true,
         status: true,
         category: { select: { id: true, name: true } },
       },
@@ -165,6 +178,9 @@ export class DoctorsService {
       id: string;
       name: string;
       imageUrl: string | null;
+      address: string | null;
+      latitude: number | null;
+      longitude: number | null;
       status: string;
       category: { id: string; name: string };
     },
@@ -181,6 +197,7 @@ export class DoctorsService {
         id: d.category.id,
         name: d.category.name,
       },
+      location: this.toLocation(d),
     };
   }
 
@@ -189,6 +206,9 @@ export class DoctorsService {
     name: string;
     bio: string | null;
     imageUrl: string | null;
+    address: string | null;
+    latitude: number | null;
+    longitude: number | null;
     status: string;
     createdAt: Date;
     updatedAt: Date;
@@ -209,10 +229,28 @@ export class DoctorsService {
       },
       bio: d.bio,
       imageUrl: d.imageUrl,
+      location: this.toLocation(d),
       status: d.status as PublicDoctorRecord['status'],
       services: (d.services ?? []).map((s) => this.toPublicService(s)),
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
+    };
+  }
+
+  private toLocation(d: {
+    address: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  }): PublicDoctorLocation {
+    return {
+      address: d.address ?? null,
+      latitude: d.latitude ?? null,
+      longitude: d.longitude ?? null,
+      googleMapsUrl: buildGoogleMapsUrl({
+        address: d.address,
+        latitude: d.latitude,
+        longitude: d.longitude,
+      }),
     };
   }
 

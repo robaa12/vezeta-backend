@@ -130,6 +130,9 @@ model Doctor {
   categoryId String
   bio        String?
   imageUrl   String?
+  address    String?
+  latitude   Float?
+  longitude  Float?
   status     String   @default("ACTIVE")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

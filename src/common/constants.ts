@@ -14,6 +14,9 @@ export const MAX_PAGE_SIZE = 100;
 /** Doctor profile — bio (about section) cap. */
 export const MAX_DOCTOR_BIO_LENGTH = 2000;
 
+/** Doctor profile — clinic address (free text) cap. */
+export const MAX_DOCTOR_ADDRESS_LENGTH = 500;
+
 /** Doctor profile — imageUrl cap. */
 export const MAX_URL_LENGTH = 2048;
 
