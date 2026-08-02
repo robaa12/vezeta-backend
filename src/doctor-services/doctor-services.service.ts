@@ -80,7 +80,6 @@ export class DoctorServicesService {
     dto: CreateDoctorServiceDto,
   ): Promise<DoctorServiceResponseDto> {
     await this.assertDoctorExists(doctorId);
-    this.validateDiscountAgainstPrice(dto.discountPercent, dto.price);
 
     let created: DoctorServiceRow;
     try {
@@ -123,27 +122,6 @@ export class DoctorServicesService {
 
     if (Object.keys(data).length === 0) {
       throw new BadRequestException('No fields to update');
-    }
-
-    // When the patch changes discountPercent but not price, the new
-    // discount must still pair with a price. The "effective" price is
-    // the new one when the patch sets it, otherwise the existing one.
-    if (dto.discountPercent !== undefined && dto.price === undefined) {
-      this.validateDiscountAgainstPrice(
-        dto.discountPercent,
-        existing.price === null ? null : Number(existing.price),
-      );
-    }
-    // Same for price-only patches: clearing the price while a discount
-    // remains is rejected.
-    if (dto.price !== undefined && dto.discountPercent === undefined) {
-      const stillHasDiscount =
-        existing.discountPercent !== null && existing.discountPercent > 0;
-      if (dto.price === null && stillHasDiscount) {
-        throw new BadRequestException(
-          'Cannot clear price while a discount is set; clear the discount first',
-        );
-      }
     }
 
     let updated: DoctorServiceRow;
@@ -197,18 +175,6 @@ export class DoctorServicesService {
     });
     if (!doctor) {
       throw new NotFoundException('Doctor not found');
-    }
-  }
-
-  private validateDiscountAgainstPrice(
-    discountPercent: number | undefined,
-    price: number | null | undefined,
-  ): void {
-    if (discountPercent === undefined) return;
-    if (price === undefined || price === null) {
-      throw new BadRequestException(
-        'A discount requires a price; supply a price or omit the discount',
-      );
     }
   }
 

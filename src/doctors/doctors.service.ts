@@ -83,6 +83,7 @@ export class DoctorsService {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' } },
         { category: { name: { contains: query.search, mode: 'insensitive' } } },
+        { address: { contains: query.search, mode: 'insensitive' } },
       ];
     }
 

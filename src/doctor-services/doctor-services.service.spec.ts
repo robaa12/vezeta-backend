@@ -114,14 +114,30 @@ describe('DoctorServicesService — createForDoctor', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('throws 400 when discount is supplied without a price', async () => {
+  it('creates a discount-only service without a listed price', async () => {
     prisma.doctor.findUnique.mockResolvedValueOnce({ id: 'd1' });
-    await expect(
-      service.createForDoctor('d1', {
-        name: 'Consultation',
+    prisma.doctorService.create.mockResolvedValueOnce({
+      ...baseService,
+      price: null,
+      discountPercent: 10,
+    });
+
+    const result = await service.createForDoctor('d1', {
+      name: 'Consultation',
+      discountPercent: 10,
+    });
+
+    expect(result).toMatchObject({
+      price: null,
+      discountPercent: 10,
+      finalPrice: null,
+    });
+    expect(prisma.doctorService.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        price: null,
         discountPercent: 10,
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 
   it('creates a service with defaults (ACTIVE, no price, no discount)', async () => {
@@ -198,26 +214,48 @@ describe('DoctorServicesService — updateForDoctor', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('throws 400 when adding a discount while the existing price is null', async () => {
+  it('allows adding a discount while the existing price is null', async () => {
     prisma.doctorService.findFirst.mockResolvedValueOnce({
       ...baseService,
       price: null,
       discountPercent: null,
     });
-    await expect(
-      service.updateForDoctor('d1', 's1', { discountPercent: 10 }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    prisma.doctorService.update.mockResolvedValueOnce({
+      ...baseService,
+      price: null,
+      discountPercent: 10,
+    });
+
+    const result = await service.updateForDoctor('d1', 's1', {
+      discountPercent: 10,
+    });
+
+    expect(result).toMatchObject({
+      price: null,
+      discountPercent: 10,
+      finalPrice: null,
+    });
   });
 
-  it('throws 400 when clearing the price while a discount is set', async () => {
+  it('allows clearing the price while keeping a discount', async () => {
     prisma.doctorService.findFirst.mockResolvedValueOnce({
       ...baseService,
       price: new Prisma.Decimal('100.00'),
       discountPercent: 10,
     });
-    await expect(
-      service.updateForDoctor('d1', 's1', { price: null }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    prisma.doctorService.update.mockResolvedValueOnce({
+      ...baseService,
+      price: null,
+      discountPercent: 10,
+    });
+
+    const result = await service.updateForDoctor('d1', 's1', { price: null });
+
+    expect(result).toMatchObject({
+      price: null,
+      discountPercent: 10,
+      finalPrice: null,
+    });
   });
 
   it('allows updating only the price when no discount is set', async () => {

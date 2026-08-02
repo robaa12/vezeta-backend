@@ -23,7 +23,7 @@ export class ListUsersDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: 'Search by name or email' })
+  @ApiPropertyOptional({ description: 'Search by name, email, or phone number' })
   @IsOptional()
   @IsString()
   @MaxLength(255)

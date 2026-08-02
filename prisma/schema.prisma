@@ -116,6 +116,14 @@ model Category {
 // categoryId is required and references an ACTIVE Category (feature
 // 005-doctor-categories); the free-text `specialty` column was
 // dropped in this migration.
+//
+// Location fields (address + optional latitude/longitude) are
+// admin-managed free-text / numeric input. The public doctor profile
+// derives a clickable Google Maps URL only when both coordinates are
+// set. The address remains plain public text when no map pin was chosen.
+// lat/lng consistency (both set or both null) is enforced at the DTO
+// layer; the DB allows either column to be set independently to keep the
+// schema flexible.
 model Doctor {
   id         String   @id @default(cuid())
   name       String
@@ -141,9 +149,10 @@ model Doctor {
 // DoctorService is a per-doctor catalog of services the doctor offers
 // (e.g. "Consultation", "ECG"). Each row is a free-text name attached
 // to a specific doctor — there is no shared global catalog. Price is
-// optional (some services like "Follow-up" may be free); discountPercent
-// is optional and only meaningful when a price is set (enforced in the
-// DTO). Lifecycle mirrors Doctor/Category: ACTIVE by default, soft
+// optional (some services like "Follow-up" may be free or priced on
+// request); discountPercent is independently optional, allowing a doctor
+// to advertise a percentage offer without publishing a price. Lifecycle
+// mirrors Doctor/Category: ACTIVE by default, soft
 // deactivation supported. Hard-deleting the doctor cascades the
 // services (ON DELETE CASCADE) — no clinical history is attached to a
 // service so audit trail is unaffected.

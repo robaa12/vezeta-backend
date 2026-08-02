@@ -440,6 +440,39 @@
                             "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                             "example": "/uploads/doctors/clx123abc.jpg"
                           },
+                          "location": {
+                            "type": "object",
+                            "properties": {
+                              "address": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Public clinic address entered by an admin."
+                              },
+                              "latitude": {
+                                "type": "number",
+                                "nullable": true,
+                                "minimum": -90,
+                                "maximum": 90
+                              },
+                              "longitude": {
+                                "type": "number",
+                                "nullable": true,
+                                "minimum": -180,
+                                "maximum": 180
+                              },
+                              "googleMapsUrl": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                              }
+                            },
+                            "required": [
+                              "address",
+                              "latitude",
+                              "longitude",
+                              "googleMapsUrl"
+                            ]
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -472,6 +505,7 @@
                           "id",
                           "name",
                           "category",
+                          "location",
                           "status",
                           "serviceCount",
                           "createdAt",
@@ -539,6 +573,27 @@
                     "maxLength": 2000,
                     "description": "Short biography / about section."
                   },
+                  "address": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "description": "Required public clinic address.",
+                    "example": "15 Tahrir Square, Cairo, Egypt"
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "Clinic latitude. Must be paired with longitude.",
+                    "example": 30.0444
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "Clinic longitude. Must be paired with latitude.",
+                    "example": 31.2357
+                  },
                   "image": {
                     "type": "string",
                     "format": "binary",
@@ -547,7 +602,8 @@
                 },
                 "required": [
                   "name",
-                  "categoryId"
+                  "categoryId",
+                  "address"
                 ]
               }
             }
@@ -598,6 +654,39 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Public clinic address entered by an admin."
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -630,6 +719,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "serviceCount",
                         "createdAt",
@@ -724,6 +814,39 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Public clinic address entered by an admin."
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -756,6 +879,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "serviceCount",
                         "createdAt",
@@ -825,6 +949,26 @@
                     "type": "string",
                     "maxLength": 2000
                   },
+                  "address": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "description": "New public clinic address. It cannot be empty."
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "Clinic latitude. Send both coordinates or clear both."
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "Clinic longitude. Send both coordinates or clear both."
+                  },
                   "status": {
                     "type": "string",
                     "enum": [
@@ -887,6 +1031,39 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Public clinic address entered by an admin."
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -919,6 +1096,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "serviceCount",
                         "createdAt",
@@ -1053,6 +1231,39 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Public clinic address entered by an admin."
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -1085,6 +1296,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "serviceCount",
                         "createdAt",
@@ -1182,6 +1394,39 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Public clinic address entered by an admin."
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -1214,6 +1459,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "serviceCount",
                         "createdAt",
@@ -1414,7 +1660,7 @@
     },
     "/api/admin/users": {
       "get": {
-        "description": "Paginated list of all users. Filterable by role, isActive status, and search (name/email).",
+        "description": "Paginated list of all users. Filterable by role, isActive status, and search (name/email/phone).",
         "operationId": "AdminController_listUsers",
         "parameters": [
           {
@@ -1443,7 +1689,7 @@
             "name": "search",
             "required": false,
             "in": "query",
-            "description": "Search by name or email",
+            "description": "Search by name, email, or phone number",
             "schema": {
               "type": "string"
             }
@@ -1480,7 +1726,52 @@
                     "users": {
                       "type": "array",
                       "items": {
-                        "type": "object"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "phoneNumber": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "The phone number supplied by the user, or null if absent."
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "user",
+                              "admin"
+                            ]
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "email",
+                          "phoneNumber",
+                          "role",
+                          "isActive",
+                          "createdAt",
+                          "updatedAt"
+                        ]
                       }
                     },
                     "total": {
@@ -2357,7 +2648,7 @@
     },
     "/api/doctors": {
       "get": {
-        "description": "Anonymous-accessible listing of doctors. Optional filters: categoryId (FK equality, requires the category to be ACTIVE) and search (case-insensitive substring on name + category.name). Pagination via page (default 1) and pageSize (default 20, max 100).",
+        "description": "Anonymous-accessible listing of doctors. Optional filters: categoryId (FK equality, requires the category to be ACTIVE) and search (case-insensitive substring on doctor name, category name, or clinic address). Pagination via page (default 1) and pageSize (default 20, max 100).",
         "operationId": "DoctorsController_listDoctors",
         "parameters": [
           {
@@ -2375,10 +2666,10 @@
             "name": "search",
             "required": false,
             "in": "query",
-            "description": "Case-insensitive substring match on doctor name OR category name.",
+            "description": "Case-insensitive substring match on doctor name, category name, or clinic address.",
             "schema": {
               "maxLength": 120,
-              "example": "Smith",
+              "example": "Nasr City",
               "type": "string"
             }
           },
@@ -2442,6 +2733,38 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "location": {
+                            "type": "object",
+                            "properties": {
+                              "address": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "latitude": {
+                                "type": "number",
+                                "nullable": true,
+                                "minimum": -90,
+                                "maximum": 90
+                              },
+                              "longitude": {
+                                "type": "number",
+                                "nullable": true,
+                                "minimum": -180,
+                                "maximum": 180
+                              },
+                              "googleMapsUrl": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                              }
+                            },
+                            "required": [
+                              "address",
+                              "latitude",
+                              "longitude",
+                              "googleMapsUrl"
+                            ]
+                          },
                           "averageRating": {
                             "type": "number",
                             "nullable": true,
@@ -2465,6 +2788,7 @@
                           "name",
                           "category",
                           "imageUrl",
+                          "location",
                           "averageRating",
                           "reviewCount",
                           "status"
@@ -2552,6 +2876,38 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -2578,6 +2934,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "createdAt",
                         "updatedAt"
@@ -3026,7 +3383,7 @@
             "description": "Service created."
           },
           "400": {
-            "description": "Validation error (e.g. discount without price, or no fields)."
+            "description": "Validation error."
           },
           "401": {
             "description": "No active session."
@@ -3133,7 +3490,7 @@
             "description": "Service updated."
           },
           "400": {
-            "description": "No fields to update, or discount/price inconsistency."
+            "description": "Validation error or no fields to update."
           },
           "401": {
             "description": "No active session."
@@ -4304,7 +4661,7 @@
     "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, navigate the browser to `GET /api/oauth/google?callbackURL=/dashboard` (or `facebook`). The state cookie is set on the 302 response, so the callback succeeds without a cookie race condition. Use it as a direct link: `<a href=\"/api/oauth/google?callbackURL=/dashboard\">Sign in with Google</a>`.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `doctor-services` — per-doctor service catalog (admin)\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
     "version": "0.0.1",
     "contact": {},
-    "x-generated-at": "2026-08-02T13:59:07.959Z"
+    "x-generated-at": "2026-08-02T19:13:13.533Z"
   },
   "tags": [
     {
@@ -4604,18 +4961,20 @@
             "example": "Consultation"
           },
           "price": {
-            "type": "number",
+            "type": "object",
             "description": "Service price (no currency). Omit for free / price-on-request services. Must be non-negative and at most 99999999.99.",
             "example": 150,
             "minimum": 0,
-            "maximum": 99999999.99
+            "maximum": 99999999.99,
+            "nullable": true
           },
           "discountPercent": {
-            "type": "number",
-            "description": "Discount as a percentage 0-100. Only meaningful when a price is also set; rejected with 400 if supplied without a price.",
+            "type": "object",
+            "description": "Optional discount percentage 0-100. It can be supplied independently when the service has no listed price.",
             "example": 10,
             "minimum": 0,
-            "maximum": 100
+            "maximum": 100,
+            "nullable": true
           },
           "status": {
             "type": "string",
@@ -4640,16 +4999,18 @@
             "maxLength": 100
           },
           "price": {
-            "type": "number",
-            "description": "New service price (no currency). Omit to clear; supply a number to set. Must be non-negative and at most 99999999.99.",
+            "type": "object",
+            "description": "New service price (no currency). Omit to keep unchanged, pass null to clear, or supply a number to set.",
             "minimum": 0,
-            "maximum": 99999999.99
+            "maximum": 99999999.99,
+            "nullable": true
           },
           "discountPercent": {
-            "type": "number",
-            "description": "New discount as a percentage 0-100. Omit to clear; supply a number to set. Requires a price to be set either in this PATCH body or already on the service (enforced in the service layer).",
+            "type": "object",
+            "description": "New independent discount percentage 0-100. Omit to keep unchanged, pass null to clear, or supply a number to set.",
             "minimum": 0,
-            "maximum": 100
+            "maximum": 100,
+            "nullable": true
           },
           "status": {
             "type": "string",

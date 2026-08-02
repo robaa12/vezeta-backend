@@ -10,7 +10,6 @@ import {
   MaxLength,
   Min,
   MinLength,
-  ValidateIf,
 } from 'class-validator';
 
 export class UpdateDoctorServiceDto {
@@ -30,27 +29,29 @@ export class UpdateDoctorServiceDto {
 
   @ApiPropertyOptional({
     description:
-      'New service price (no currency). Omit to clear; supply a number to set. Must be non-negative and at most 99999999.99.',
+      'New service price (no currency). Omit to keep unchanged, pass null to clear, or supply a number to set.',
     minimum: 0,
     maximum: 99999999.99,
+    nullable: true,
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(99_999_999.99)
-  price?: number;
+  price?: number | null;
 
   @ApiPropertyOptional({
     description:
-      'New discount as a percentage 0-100. Omit to clear; supply a number to set. Requires a price to be set either in this PATCH body or already on the service (enforced in the service layer).',
+      'New independent discount percentage 0-100. Omit to keep unchanged, pass null to clear, or supply a number to set.',
     minimum: 0,
     maximum: 100,
+    nullable: true,
   })
-  @ValidateIf((o: UpdateDoctorServiceDto) => o.discountPercent !== undefined)
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(100)
-  discountPercent?: number;
+  discountPercent?: number | null;
 
   @ApiPropertyOptional({
     description: 'New lifecycle status.',

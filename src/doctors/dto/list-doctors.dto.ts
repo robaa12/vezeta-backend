@@ -14,9 +14,10 @@ export class ListPublicDoctorsDto {
   categoryId?: string;
 
   @ApiPropertyOptional({
-    description: 'Case-insensitive substring match on doctor name OR category name.',
+    description:
+      'Case-insensitive substring match on doctor name, category name, or clinic address.',
     maxLength: 120,
-    example: 'Smith',
+    example: 'Nasr City',
   })
   @IsOptional()
   @IsString()

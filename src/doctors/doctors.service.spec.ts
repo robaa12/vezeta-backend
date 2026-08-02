@@ -23,6 +23,9 @@ const baseRecord = {
   category: { id: 'cat1', name: 'Cardiology' },
   bio: '20 years of experience.',
   imageUrl: null,
+  address: null,
+  latitude: null,
+  longitude: null,
   status: 'ACTIVE',
   services: [],
   createdAt: new Date('2026-07-11T10:00:00Z'),
@@ -92,6 +95,27 @@ describe('DoctorsService — listPublicDoctors', () => {
     });
   });
 
+  it('returns the clinic location and generated Google Maps link', async () => {
+    prisma.doctor.findMany.mockResolvedValueOnce([
+      {
+        ...baseRecord,
+        address: '15 Tahrir Square, Cairo, Egypt',
+        latitude: 30.0444,
+        longitude: 31.2357,
+      },
+    ]);
+    prisma.doctor.count.mockResolvedValueOnce(1);
+
+    const result = await service.listPublicDoctors({});
+
+    expect(result.doctors[0]?.location).toEqual({
+      address: '15 Tahrir Square, Cairo, Egypt',
+      latitude: 30.0444,
+      longitude: 31.2357,
+      googleMapsUrl: 'https://www.google.com/maps?q=30.0444,31.2357',
+    });
+  });
+
   it('filters by status=ACTIVE and category.status=ACTIVE in every query', async () => {
     prisma.doctor.findMany.mockResolvedValueOnce([]);
     prisma.doctor.count.mockResolvedValueOnce(0);
@@ -121,7 +145,7 @@ describe('DoctorsService — listPublicDoctors', () => {
     });
   });
 
-  it('applies the search filter as case-insensitive substring on name + category.name', async () => {
+  it('applies search to doctor name, category name, and clinic address', async () => {
     prisma.doctor.findMany.mockResolvedValueOnce([]);
     prisma.doctor.count.mockResolvedValueOnce(0);
     await service.listPublicDoctors({ search: 'smith' });
@@ -134,6 +158,7 @@ describe('DoctorsService — listPublicDoctors', () => {
       OR: [
         { name: { contains: 'smith', mode: 'insensitive' } },
         { category: { name: { contains: 'smith', mode: 'insensitive' } } },
+        { address: { contains: 'smith', mode: 'insensitive' } },
       ],
     });
   });
@@ -155,6 +180,7 @@ describe('DoctorsService — listPublicDoctors', () => {
       OR: [
         { name: { contains: 'Jane', mode: 'insensitive' } },
         { category: { name: { contains: 'Jane', mode: 'insensitive' } } },
+        { address: { contains: 'Jane', mode: 'insensitive' } },
       ],
     });
   });
