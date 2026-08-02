@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { createAuth } from '../auth/auth.js';
 import { EmailService } from '../common/email/email.service.js';
+import { laboratorySeedData } from './laboratories.js';
 
 const logger = new Logger('SeedScript');
 
@@ -108,6 +109,69 @@ async function main(): Promise<void> {
     }
 
     logger.log(`Default categories ensured: ${defaultCategories.join(', ')}`);
+
+    for (const laboratory of laboratorySeedData) {
+      const { services, reviews, facilities, ...laboratoryFields } = laboratory;
+      const data = { ...laboratoryFields, facilities: [...facilities] };
+      await prisma.laboratory.upsert({
+        where: { id: laboratory.id },
+        update: data,
+        create: data,
+      });
+      for (const [
+        id,
+        name,
+        description,
+        price,
+        turnaround,
+        preparation,
+        popular,
+      ] of services) {
+        await prisma.laboratoryService.upsert({
+          where: { id },
+          update: {
+            name,
+            description,
+            price,
+            turnaround,
+            preparation,
+            popular: popular ?? false,
+            status: 'ACTIVE',
+          },
+          create: {
+            id,
+            laboratoryId: laboratory.id,
+            name,
+            description,
+            price,
+            turnaround,
+            preparation,
+            popular: popular ?? false,
+          },
+        });
+      }
+      for (const [id, authorName, rating, comment, createdAt] of reviews) {
+        await prisma.laboratoryReview.upsert({
+          where: { id },
+          update: {
+            authorName,
+            rating,
+            comment,
+            createdAt: new Date(createdAt),
+          },
+          create: {
+            id,
+            laboratoryId: laboratory.id,
+            authorName,
+            rating,
+            comment,
+            createdAt: new Date(createdAt),
+          },
+        });
+      }
+    }
+
+    logger.log(`Laboratories ensured: ${laboratorySeedData.length}`);
   } catch (error) {
     logger.error(
       'Seed failed',

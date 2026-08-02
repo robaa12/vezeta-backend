@@ -327,6 +327,47 @@ describe('AppointmentsService — admin slot CRUD (US8)', () => {
     await expect(service.blockSlot('s1')).rejects.toThrow(ConflictException);
   });
 
+  it('updateSlot rejects a BOOKED slot without changing its lifecycle state', async () => {
+    (prisma['doctorSlot'].findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+      doctorId: 'd1',
+      status: 'BOOKED',
+      startsAt: new Date(),
+      endsAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await expect(
+      service.updateSlot('s1', { status: 'AVAILABLE' }),
+    ).rejects.toThrow(ConflictException);
+    expect(prisma['doctorSlot'].updateMany).not.toHaveBeenCalled();
+    expect(prisma['doctorSlot'].update).not.toHaveBeenCalled();
+  });
+
+  it('updateSlot does not overwrite a slot booked after its pre-read', async () => {
+    (prisma['doctorSlot'].findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 's1',
+      doctorId: 'd1',
+      status: 'AVAILABLE',
+      startsAt: new Date(),
+      endsAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    (prisma['doctorSlot'].updateMany as jest.Mock).mockResolvedValueOnce({
+      count: 0,
+    });
+
+    await expect(
+      service.updateSlot('s1', { status: 'BLOCKED' }),
+    ).rejects.toThrow(ConflictException);
+    expect(prisma['doctorSlot'].updateMany).toHaveBeenCalledWith({
+      where: { id: 's1', status: { in: ['AVAILABLE', 'BLOCKED'] } },
+      data: { status: 'BLOCKED' },
+    });
+  });
+
   it('deleteSlot rejects non-AVAILABLE slot (409)', async () => {
     (prisma['doctorSlot'].findUnique as jest.Mock).mockResolvedValueOnce({
       id: 's1',
@@ -1290,31 +1331,29 @@ describe('AppointmentsService — completeAppointment (US7)', () => {
     );
   });
 
-  it('returns 400 for a CONFIRMED appointment with scheduledAt in the future (after a successful update)', async () => {
+  it('returns 400 for a future CONFIRMED appointment without transitioning it', async () => {
     (prisma['appointment'].updateMany as jest.Mock).mockResolvedValueOnce({
-      count: 1,
+      count: 0,
     });
     (
-      prisma['appointment'].findUniqueOrThrow as jest.Mock
+      prisma['appointment'].findUnique as jest.Mock
     ).mockResolvedValueOnce({
       id: 'a1',
-      status: 'COMPLETED',
+      status: 'CONFIRMED',
       scheduledAt: new Date(Date.now() + 3600_000),
-      patientNotes: null,
-      adminNotes: null,
-      cancelledAt: null,
-      cancelledBy: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      doctor: {
-        id: 'd1',
-        name: 'Dr. X',
-        category: { id: 'c1', name: 'Cardiology' },
-      },
     });
     await expect(service.completeAppointment('a1')).rejects.toThrow(
       BadRequestException,
     );
+    expect(prisma['appointment'].updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'a1',
+        status: 'CONFIRMED',
+        scheduledAt: { lte: expect.any(Date) },
+      },
+      data: { status: 'COMPLETED' },
+    });
+    expect(prisma['appointment'].update).not.toHaveBeenCalled();
   });
 
   it('succeeds for a past-time CONFIRMED appointment (200)', async () => {

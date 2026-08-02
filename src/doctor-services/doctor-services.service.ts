@@ -24,6 +24,7 @@ type DoctorServiceRow = {
   name: string;
   price: Prisma.Decimal | null;
   discountPercent: number | null;
+  pricingMode: string;
   status: string;
   createdAt: Date;
   updatedAt: Date;
@@ -80,6 +81,9 @@ export class DoctorServicesService {
     dto: CreateDoctorServiceDto,
   ): Promise<DoctorServiceResponseDto> {
     await this.assertDoctorExists(doctorId);
+    const pricingMode =
+      dto.pricingMode ?? (dto.price == null ? 'ON_REQUEST' : 'FIXED');
+    this.validatePricing(pricingMode, dto.price, dto.discountPercent);
 
     let created: DoctorServiceRow;
     try {
@@ -89,6 +93,7 @@ export class DoctorServicesService {
           name: dto.name,
           price: this.toDecimal(dto.price),
           discountPercent: dto.discountPercent ?? null,
+          pricingMode,
           status: dto.status ?? 'ACTIVE',
         },
       });
@@ -118,11 +123,25 @@ export class DoctorServicesService {
     if (dto.discountPercent !== undefined) {
       data.discountPercent = dto.discountPercent;
     }
+    if (dto.pricingMode !== undefined) data.pricingMode = dto.pricingMode;
     if (dto.status !== undefined) data.status = dto.status;
 
     if (Object.keys(data).length === 0) {
       throw new BadRequestException('No fields to update');
     }
+
+    const pricingMode = dto.pricingMode ?? existing.pricingMode;
+    const price =
+      dto.price === undefined
+        ? existing.price === null
+          ? null
+          : Number(existing.price)
+        : dto.price;
+    const discountPercent =
+      dto.discountPercent === undefined
+        ? existing.discountPercent
+        : dto.discountPercent;
+    this.validatePricing(pricingMode, price, discountPercent);
 
     let updated: DoctorServiceRow;
     try {
@@ -178,6 +197,28 @@ export class DoctorServicesService {
     }
   }
 
+  private validatePricing(
+    pricingMode: string,
+    price: number | null | undefined,
+    discountPercent: number | null | undefined,
+  ): void {
+    if (pricingMode === 'ON_REQUEST' && price !== undefined && price !== null) {
+      throw new BadRequestException(
+        'ON_REQUEST services cannot have a price; set pricingMode to FIXED first',
+      );
+    }
+    if (
+      pricingMode === 'FIXED' &&
+      discountPercent !== undefined &&
+      discountPercent !== null &&
+      (price === undefined || price === null)
+    ) {
+      throw new BadRequestException(
+        'A discount for a FIXED service requires a price',
+      );
+    }
+  }
+
   private toDecimal(value: number | null | undefined): Prisma.Decimal | null {
     if (value === undefined || value === null) return null;
     // Constructing from the string form avoids the float-precision
@@ -205,6 +246,7 @@ export class DoctorServicesService {
       doctorId: s.doctorId,
       name: s.name,
       price,
+      pricingMode: s.pricingMode as DoctorServiceResponseDto['pricingMode'],
       discountPercent: s.discountPercent,
       finalPrice: this.computeFinalPrice(price, s.discountPercent),
       status: s.status as DoctorServiceResponseDto['status'],

@@ -442,6 +442,7 @@
                           },
                           "location": {
                             "type": "object",
+                            "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                             "properties": {
                               "address": {
                                 "type": "string",
@@ -463,7 +464,8 @@
                               "googleMapsUrl": {
                                 "type": "string",
                                 "nullable": true,
-                                "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                                "format": "uri",
+                                "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                               }
                             },
                             "required": [
@@ -577,7 +579,7 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500,
-                    "description": "Required public clinic address.",
+                    "description": "Required public clinic address. Provide latitude and longitude to create an exact Google Maps pin.",
                     "example": "15 Tahrir Square, Cairo, Egypt"
                   },
                   "latitude": {
@@ -656,6 +658,7 @@
                         },
                         "location": {
                           "type": "object",
+                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -677,7 +680,8 @@
                             "googleMapsUrl": {
                               "type": "string",
                               "nullable": true,
-                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                              "format": "uri",
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -816,6 +820,7 @@
                         },
                         "location": {
                           "type": "object",
+                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -837,7 +842,8 @@
                             "googleMapsUrl": {
                               "type": "string",
                               "nullable": true,
-                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                              "format": "uri",
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -953,7 +959,7 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500,
-                    "description": "New public clinic address. It cannot be empty."
+                    "description": "New public clinic address. When provided, it cannot be empty."
                   },
                   "latitude": {
                     "type": "number",
@@ -1033,6 +1039,7 @@
                         },
                         "location": {
                           "type": "object",
+                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -1054,7 +1061,8 @@
                             "googleMapsUrl": {
                               "type": "string",
                               "nullable": true,
-                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                              "format": "uri",
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -1233,6 +1241,7 @@
                         },
                         "location": {
                           "type": "object",
+                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -1254,7 +1263,8 @@
                             "googleMapsUrl": {
                               "type": "string",
                               "nullable": true,
-                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                              "format": "uri",
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -1396,6 +1406,7 @@
                         },
                         "location": {
                           "type": "object",
+                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -1417,7 +1428,8 @@
                             "googleMapsUrl": {
                               "type": "string",
                               "nullable": true,
-                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                              "format": "uri",
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -1645,6 +1657,9 @@
           },
           "404": {
             "description": "User not found."
+          },
+          "409": {
+            "description": "User is already active."
           }
         },
         "security": [
@@ -2735,6 +2750,7 @@
                           },
                           "location": {
                             "type": "object",
+                             "description": "Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.",
                             "properties": {
                               "address": {
                                 "type": "string",
@@ -2755,7 +2771,8 @@
                               "googleMapsUrl": {
                                 "type": "string",
                                 "nullable": true,
-                                "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                                "format": "uri",
+                                "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                               }
                             },
                             "required": [
@@ -2878,6 +2895,7 @@
                         },
                         "location": {
                           "type": "object",
+                           "description": "Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -2898,7 +2916,8 @@
                             "googleMapsUrl": {
                               "type": "string",
                               "nullable": true,
-                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
+                              "format": "uri",
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -3383,7 +3402,7 @@
             "description": "Service created."
           },
           "400": {
-            "description": "Validation error."
+            "description": "Validation error (e.g. a price on an ON_REQUEST service, or no fields)."
           },
           "401": {
             "description": "No active session."
@@ -3490,7 +3509,7 @@
             "description": "Service updated."
           },
           "400": {
-            "description": "Validation error or no fields to update."
+            "description": "No fields to update, or pricing mode/price inconsistency."
           },
           "401": {
             "description": "No active session."
@@ -4961,20 +4980,29 @@
             "example": "Consultation"
           },
           "price": {
-            "type": "object",
-            "description": "Service price (no currency). Omit for free / price-on-request services. Must be non-negative and at most 99999999.99.",
+            "type": "number",
+            "description": "Service price (no currency). Required when pricingMode is FIXED and omitted for ON_REQUEST services. Must be non-negative and at most 99999999.99.",
             "example": 150,
             "minimum": 0,
             "maximum": 99999999.99,
             "nullable": true
           },
           "discountPercent": {
-            "type": "object",
-            "description": "Optional discount percentage 0-100. It can be supplied independently when the service has no listed price.",
+            "type": "number",
+            "description": "Discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price; the clinic confirms the final price.",
             "example": 10,
             "minimum": 0,
             "maximum": 100,
             "nullable": true
+          },
+          "pricingMode": {
+            "type": "string",
+            "description": "FIXED exposes a known service price. ON_REQUEST means the clinic confirms the price; a discount percentage may still be advertised. Defaults to FIXED when price is supplied, otherwise ON_REQUEST.",
+            "enum": [
+              "FIXED",
+              "ON_REQUEST"
+            ],
+            "example": "ON_REQUEST"
           },
           "status": {
             "type": "string",
@@ -4999,18 +5027,26 @@
             "maxLength": 100
           },
           "price": {
-            "type": "object",
-            "description": "New service price (no currency). Omit to keep unchanged, pass null to clear, or supply a number to set.",
+            "type": "number",
+            "description": "New service price (no currency). ON_REQUEST services must not have a price. Must be non-negative and at most 99999999.99.",
+            "nullable": true,
             "minimum": 0,
-            "maximum": 99999999.99,
-            "nullable": true
+            "maximum": 99999999.99
           },
           "discountPercent": {
-            "type": "object",
-            "description": "New independent discount percentage 0-100. Omit to keep unchanged, pass null to clear, or supply a number to set.",
+            "type": "number",
+            "description": "New discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price.",
             "minimum": 0,
             "maximum": 100,
             "nullable": true
+          },
+          "pricingMode": {
+            "type": "string",
+            "description": "FIXED exposes a known service price. ON_REQUEST means the clinic confirms the price and does not allow a stored price.",
+            "enum": [
+              "FIXED",
+              "ON_REQUEST"
+            ]
           },
           "status": {
             "type": "string",

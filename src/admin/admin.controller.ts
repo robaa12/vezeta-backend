@@ -47,6 +47,7 @@ import { Roles } from '../common/decorators/roles.decorator.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
 import { doctorImageMulterOpts } from '../upload/multer.config.js';
 import type { SessionUser } from '../common/interfaces/session.interface.js';
+import { MAX_DOCTOR_ADDRESS_LENGTH } from '../common/constants.js';
 
 // Shared response schema for the Doctor payload. Used by every doctor
 // endpoint so the generated OpenAPI surface documents `imageUrl` (and
@@ -70,8 +71,9 @@ const DOCTOR_LOCATION_SCHEMA = {
     googleMapsUrl: {
       type: 'string',
       nullable: true,
+      format: 'uri',
       description:
-        'Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null.',
+        'Generated Google Maps link using coordinates when available, otherwise the address.',
     },
   },
   required: ['address', 'latitude', 'longitude', 'googleMapsUrl'],
@@ -200,28 +202,30 @@ const CREATE_DOCTOR_BODY_SCHEMA = {
     },
     address: {
       type: 'string',
-      minLength: 1,
-      maxLength: 500,
-      description: 'Required public clinic address.',
+      maxLength: MAX_DOCTOR_ADDRESS_LENGTH,
+      description:
+        'Clinic address. For a Google Maps picker, submit its formatted address with latitude and longitude.',
       example: '15 Tahrir Square, Cairo, Egypt',
     },
     latitude: {
       type: 'number',
       minimum: -90,
       maximum: 90,
-      description: 'Clinic latitude. Must be paired with longitude.',
+      description:
+        'Google Maps picker latitude or manually entered coordinate.',
       example: 30.0444,
     },
     longitude: {
       type: 'number',
       minimum: -180,
       maximum: 180,
-      description: 'Clinic longitude. Must be paired with latitude.',
+      description:
+        'Google Maps picker longitude or manually entered coordinate.',
       example: 31.2357,
     },
     image: IMAGE_FIELD_SCHEMA,
   },
-  required: ['name', 'categoryId', 'address'],
+  required: ['name', 'categoryId'],
 };
 
 const UPDATE_DOCTOR_BODY_SCHEMA = {
@@ -244,23 +248,24 @@ const UPDATE_DOCTOR_BODY_SCHEMA = {
     },
     address: {
       type: 'string',
-      minLength: 1,
-      maxLength: 500,
-      description: 'New public clinic address. It cannot be empty.',
+      maxLength: MAX_DOCTOR_ADDRESS_LENGTH,
+      description: 'Clinic address. Submit an empty string to clear it.',
     },
     latitude: {
       type: 'number',
       nullable: true,
       minimum: -90,
       maximum: 90,
-      description: 'Clinic latitude. Send both coordinates or clear both.',
+      description:
+        'Google Maps picker latitude. Pass null with longitude to clear both.',
     },
     longitude: {
       type: 'number',
       nullable: true,
       minimum: -180,
       maximum: 180,
-      description: 'Clinic longitude. Send both coordinates or clear both.',
+      description:
+        'Google Maps picker longitude. Pass null with latitude to clear both.',
     },
     status: {
       type: 'string',
@@ -468,6 +473,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Activate a user account' })
   @ApiParam({ name: 'id', description: 'User id' })
   @ApiNotFoundResponse({ description: 'User not found.' })
+  @ApiConflictResponse({ description: 'User is already active.' })
   activateUser(
     @Param('id') id: string,
     @CurrentUser() admin: SessionUser,

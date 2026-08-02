@@ -29,10 +29,11 @@ export class UpdateDoctorServiceDto {
 
   @ApiPropertyOptional({
     description:
-      'New service price (no currency). Omit to keep unchanged, pass null to clear, or supply a number to set.',
+      'New service price (no currency). Omit to keep unchanged, pass null to clear, or supply a number to set. ON_REQUEST services must not have a price.',
+    type: Number,
+    nullable: true,
     minimum: 0,
     maximum: 99999999.99,
-    nullable: true,
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -42,7 +43,7 @@ export class UpdateDoctorServiceDto {
 
   @ApiPropertyOptional({
     description:
-      'New independent discount percentage 0-100. Omit to keep unchanged, pass null to clear, or supply a number to set.',
+      'New discount percentage 0-100. Omit to keep unchanged, pass null to clear, or supply a number to set. ON_REQUEST services may use a discount without a known price.',
     minimum: 0,
     maximum: 100,
     nullable: true,
@@ -52,6 +53,15 @@ export class UpdateDoctorServiceDto {
   @Min(0)
   @Max(100)
   discountPercent?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'FIXED exposes a known service price. ON_REQUEST means the clinic confirms the price and does not allow a stored price.',
+    enum: ['FIXED', 'ON_REQUEST'],
+  })
+  @IsOptional()
+  @IsIn(['FIXED', 'ON_REQUEST'])
+  pricingMode?: 'FIXED' | 'ON_REQUEST';
 
   @ApiPropertyOptional({
     description: 'New lifecycle status.',

@@ -44,8 +44,7 @@ export class UpdateDoctorDto {
 
   @ApiPropertyOptional({
     description:
-      'New required clinic address. When provided, it cannot be empty.',
-    minLength: 1,
+      'New clinic address. Pass an empty string to clear the address (and the doctor\'s Google Maps link, if no coordinates are set).',
     maxLength: MAX_DOCTOR_ADDRESS_LENGTH,
   })
   @IsOptional()
@@ -53,7 +52,6 @@ export class UpdateDoctorDto {
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString()
-  @MinLength(1)
   @MaxLength(MAX_DOCTOR_ADDRESS_LENGTH)
   address?: string;
 

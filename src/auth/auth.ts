@@ -1,7 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from '@better-auth/prisma-adapter';
 import { emailOTP } from 'better-auth/plugins/email-otp';
-import { phoneNumber } from 'better-auth/plugins/phone-number';
 import { APIError } from 'better-auth/api';
 import { PrismaClient } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -13,36 +12,6 @@ import {
   SESSION_REFRESH_AGE_SECONDS,
   SESSION_TTL_SECONDS,
 } from '../common/constants.js';
-
-const sendPhoneOTP = (data: {
-  phoneNumber: string;
-  code: string;
-}): Promise<void> => {
-  if (process.env.NODE_ENV === 'production') {
-    console.warn(
-      `[phone-otp] SMS provider not configured — phone OTP would be sent to ${data.phoneNumber} but no provider is wired. Set SMS_PROVIDER_API_KEY and implement sendPhoneOTP in src/auth/auth.ts.`,
-    );
-    return Promise.resolve();
-  }
-  console.log(`[phone-otp] phone=${data.phoneNumber} code=${data.code}`);
-  return Promise.resolve();
-};
-
-const sendPhonePasswordResetOTP = (data: {
-  phoneNumber: string;
-  code: string;
-}): Promise<void> => {
-  if (process.env.NODE_ENV === 'production') {
-    console.warn(
-      `[phone-password-reset] SMS provider not configured — reset OTP would be sent to ${data.phoneNumber} but no provider is wired. Set SMS_PROVIDER_API_KEY and implement sendPhonePasswordResetOTP in src/auth/auth.ts.`,
-    );
-    return Promise.resolve();
-  }
-  console.log(
-    `[phone-password-reset] phone=${data.phoneNumber} code=${data.code}`,
-  );
-  return Promise.resolve();
-};
 
 const INSECURE_DEV_SECRET = 'dev-only-insecure-secret-change-in-production';
 
@@ -225,12 +194,6 @@ export const createAuth = (
         // Make the OTP plugin the implementation used by Better Auth's
         // required email-verification flow (instead of a link email).
         overrideDefaultEmailVerification: true,
-      }),
-      phoneNumber({
-        otpLength: OTP_LENGTH,
-        expiresIn: OTP_TTL_SECONDS,
-        sendOTP: sendPhoneOTP,
-        sendPasswordResetOTP: sendPhonePasswordResetOTP,
       }),
     ],
   });

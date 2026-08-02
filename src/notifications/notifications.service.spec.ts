@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../common/email/email.service.js';
 import { NotificationsService } from './notifications.service.js';
@@ -137,6 +138,58 @@ describe('NotificationsService', () => {
         body: 'Hi',
       });
       expect(result.channel).toBe('IN_APP');
+      expect(email.sendNotification).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('enqueueIfAbsent', () => {
+    it('creates and dispatches a notification with its idempotency key', async () => {
+      (prisma['notification'].create as jest.Mock).mockResolvedValueOnce(
+        createdRow,
+      );
+      (prisma['user'].findUnique as jest.Mock).mockResolvedValueOnce({
+        email: 'you@example.com',
+      });
+      email.sendNotification.mockResolvedValueOnce(true);
+      (prisma['notification'].update as jest.Mock).mockResolvedValueOnce({
+        ...createdRow,
+        status: 'SENT',
+        sentAt: new Date(),
+      });
+
+      await service.enqueueIfAbsent({
+        userId: 'u1',
+        title: 'Hello',
+        body: 'World',
+        idempotencyKey: 'appointment-reminder:appointment.reminder.1h:a1',
+      });
+
+      expect(prisma['notification'].create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            idempotencyKey: 'appointment-reminder:appointment.reminder.1h:a1',
+          }),
+        }),
+      );
+      expect(email.sendNotification).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not dispatch when another replica already claimed the key', async () => {
+      (prisma['notification'].create as jest.Mock).mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        service.enqueueIfAbsent({
+          userId: 'u1',
+          title: 'Hello',
+          body: 'World',
+          idempotencyKey: 'appointment-reminder:appointment.reminder.1h:a1',
+        }),
+      ).resolves.toBeNull();
       expect(email.sendNotification).not.toHaveBeenCalled();
     });
   });

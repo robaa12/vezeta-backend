@@ -12,6 +12,7 @@ export interface PublicDoctorServiceRef {
   id: string;
   name: string;
   price: number | null;
+  pricingMode: 'FIXED' | 'ON_REQUEST';
   discountPercent: number | null;
   finalPrice: number | null;
 }
@@ -40,7 +41,9 @@ export interface PublicDoctorRecord {
  * List-view DTO for the public doctor catalog. Omits `bio` (up to
  * 2 KB per doctor — 40 KB per page at the default page size of 20).
  * Includes `imageUrl` so the frontend can render doctor photos on
- * list cards without N+1 detail fetches.
+ * list cards without N+1 detail fetches. The full location object
+ * (address + lat/lng + googleMapsUrl) is included so list cards can
+ * render a "View on map" link without an additional detail request.
  */
 export interface PublicDoctorListItem {
   id: string;
@@ -217,6 +220,7 @@ export class DoctorsService {
       id: string;
       name: string;
       price: { toNumber(): number } | number | null;
+      pricingMode: string;
       discountPercent: number | null;
     }>;
   }): PublicDoctorRecord {
@@ -258,6 +262,7 @@ export class DoctorsService {
     id: string;
     name: string;
     price: { toNumber(): number } | number | null;
+    pricingMode: string;
     discountPercent: number | null;
   }): PublicDoctorServiceRef {
     const price =
@@ -270,6 +275,7 @@ export class DoctorsService {
       id: s.id,
       name: s.name,
       price,
+      pricingMode: s.pricingMode as PublicDoctorServiceRef['pricingMode'],
       discountPercent: s.discountPercent,
       finalPrice: this.computeFinalPrice(price, s.discountPercent),
     };

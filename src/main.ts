@@ -142,6 +142,7 @@ async function bootstrap(): Promise<void> {
       // the API. Override Helmet's default same-origin CORP header only for
       // public uploaded assets so they can be embedded by that frontend.
       response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      response.setHeader('X-Content-Type-Options', 'nosniff');
       next();
     },
     expressStatic(join(process.cwd(), 'uploads')),

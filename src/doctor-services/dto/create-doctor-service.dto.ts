@@ -30,7 +30,7 @@ export class CreateDoctorServiceDto {
 
   @ApiPropertyOptional({
     description:
-      'Service price (no currency). Omit for free / price-on-request services. Must be non-negative and at most 99999999.99.',
+      'Service price (no currency). Required when pricingMode is FIXED and omitted for ON_REQUEST services. Must be non-negative and at most 99999999.99.',
     example: 150.0,
     minimum: 0,
     maximum: 99999999.99,
@@ -44,7 +44,7 @@ export class CreateDoctorServiceDto {
 
   @ApiPropertyOptional({
     description:
-      'Optional discount percentage 0-100. It can be supplied independently when the service has no listed price.',
+      'Discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price; the clinic confirms the final price.',
     example: 10,
     minimum: 0,
     maximum: 100,
@@ -55,6 +55,16 @@ export class CreateDoctorServiceDto {
   @Min(0)
   @Max(100)
   discountPercent?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'FIXED exposes a known service price. ON_REQUEST means the clinic confirms the price; a discount percentage may still be advertised. Defaults to FIXED when price is supplied, otherwise ON_REQUEST.',
+    enum: ['FIXED', 'ON_REQUEST'],
+    example: 'ON_REQUEST',
+  })
+  @IsOptional()
+  @IsIn(['FIXED', 'ON_REQUEST'])
+  pricingMode?: 'FIXED' | 'ON_REQUEST';
 
   @ApiPropertyOptional({
     description: 'Lifecycle status. Defaults to ACTIVE when omitted.',

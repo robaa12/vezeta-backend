@@ -17,6 +17,11 @@ export interface PublicPatientRef {
   name: string;
 }
 
+export interface PublicPatientRef {
+  id: string;
+  name: string;
+}
+
 export class AppointmentResponseDto {
   @ApiProperty({ description: 'Unique identifier.' })
   id!: string;

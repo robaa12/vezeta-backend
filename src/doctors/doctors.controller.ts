@@ -28,6 +28,8 @@ import { ListPublicDoctorsDto } from './dto/list-doctors.dto.js';
 // rating needed by catalog cards. The detail item is the full record.
 const PUBLIC_DOCTOR_LOCATION_SCHEMA = {
   type: 'object',
+  description:
+    'Clinic location. googleMapsUrl is available only when an admin selected an exact Google Maps pin.',
   properties: {
     address: { type: 'string', nullable: true },
     latitude: { type: 'number', nullable: true, minimum: -90, maximum: 90 },
@@ -40,6 +42,7 @@ const PUBLIC_DOCTOR_LOCATION_SCHEMA = {
     googleMapsUrl: {
       type: 'string',
       nullable: true,
+      format: 'uri',
       description:
         'Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null.',
     },

@@ -7,26 +7,16 @@ set -e
 
 echo "[entrypoint] starting vezeeta-backend"
 
-# Guard against known-insecure default passwords in production.
+# Refuse known-insecure credentials in production rather than starting a
+# database-backed service that exposes authentication data.
 if [ "${NODE_ENV:-development}" = "production" ]; then
-  INSECURE=0
   if [ "${POSTGRES_PASSWORD:-}" = "postgres" ] || [ "${POSTGRES_PASSWORD:-}" = "change-me-in-production" ]; then
-    echo "[entrypoint] ************** WARNING **************"
-    echo "[entrypoint] POSTGRES_PASSWORD is set to a default/placeholder value."
-    echo "[entrypoint] Set a strong password in production."
-    echo "[entrypoint] ************************************"
-    INSECURE=1
+    echo "[entrypoint] POSTGRES_PASSWORD must not use a default/placeholder value in production."
+    exit 1
   fi
   if [ "${SEED_ADMIN_PASSWORD:-}" = "ChangeMe123!" ]; then
-    echo "[entrypoint] ************** WARNING **************"
-    echo "[entrypoint] SEED_ADMIN_PASSWORD is the documented default."
-    echo "[entrypoint] Change it before running in production."
-    echo "[entrypoint] ************************************"
-    INSECURE=1
-  fi
-  if [ "${INSECURE:-0}" -eq 1 ]; then
-    echo "[entrypoint] sleeping 5s for visibility — override defaults to suppress."
-    sleep 5
+    echo "[entrypoint] SEED_ADMIN_PASSWORD must not use the documented default in production."
+    exit 1
   fi
 fi
 

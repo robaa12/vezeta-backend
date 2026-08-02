@@ -60,7 +60,19 @@ jobs:
       - run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/vezeta_test?schema=public
+      - run: npm run db:seed
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/vezeta_test?schema=public
+          BETTER_AUTH_SECRET: ci-test-secret-do-not-use-in-production-32char
+          BETTER_AUTH_URL: http://localhost:3000
+          NODE_ENV: test
       - run: npm test
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/vezeta_test?schema=public
+          BETTER_AUTH_SECRET: ci-test-secret-do-not-use-in-production-32char
+          BETTER_AUTH_URL: http://localhost:3000
+          NODE_ENV: test
+      - run: npm run test:e2e
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/vezeta_test?schema=public
           BETTER_AUTH_SECRET: ci-test-secret-do-not-use-in-production-32char

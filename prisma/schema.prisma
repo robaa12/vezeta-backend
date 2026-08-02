@@ -33,6 +33,7 @@ model User {
   medicalRecords MedicalRecord[]
   notifications  Notification[]
   auditLogs      AuditLog[]
+  laboratoryBookings LaboratoryBooking[]
 
   // Speeds up the last-admin guard and admin stats groupBy.
   @@index([role, isActive])
@@ -119,11 +120,11 @@ model Category {
 //
 // Location fields (address + optional latitude/longitude) are
 // admin-managed free-text / numeric input. The public doctor profile
-// derives a clickable Google Maps URL only when both coordinates are
-// set. The address remains plain public text when no map pin was chosen.
-// lat/lng consistency (both set or both null) is enforced at the DTO
-// layer; the DB allows either column to be set independently to keep the
-// schema flexible.
+// derives a clickable Google Maps URL from these fields: a precise
+// `?q=lat,lng` link when both coordinates are set, otherwise a
+// `?q=<address>` search link. lat/lng consistency (both set or both
+// null) is enforced at the DTO layer; the DB allows either column to
+// be set independently to keep the schema flexible.
 model Doctor {
   id         String   @id @default(cuid())
   name       String
@@ -151,10 +152,9 @@ model Doctor {
 
 // DoctorService is a per-doctor catalog of services the doctor offers
 // (e.g. "Consultation", "ECG"). Each row is a free-text name attached
-// to a specific doctor — there is no shared global catalog. Price is
-// optional (some services like "Follow-up" may be free or priced on
-// request); discountPercent is independently optional, allowing a doctor
-// to advertise a percentage offer without publishing a price. Lifecycle
+// to a specific doctor — there is no shared global catalog. A service is
+// either FIXED (its known price can be shown) or ON_REQUEST (the clinic
+// confirms its price; a discount can still be advertised). Lifecycle
 // mirrors Doctor/Category: ACTIVE by default, soft
 // deactivation supported. Hard-deleting the doctor cascades the
 // services (ON DELETE CASCADE) — no clinical history is attached to a
@@ -165,6 +165,7 @@ model DoctorService {
   name            String
   price           Decimal? @db.Decimal(10, 2)
   discountPercent Int?
+  pricingMode     String   @default("ON_REQUEST")
   status          String   @default("ACTIVE")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -174,6 +175,90 @@ model DoctorService {
   @@index([doctorId, status])
   @@index([doctorId])
   @@map("doctor_service")
+}
+
+model Laboratory {
+  id            String   @id @default(cuid())
+  name          String
+  shortName     String
+  city          String
+  area          String
+  address       String
+  phone         String
+  rating        Float
+  reviewCount   Int
+  accreditation String
+  turnaround    String
+  tone          String
+  about         String
+  facilities    String[]
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  services LaboratoryService[]
+  reviews  LaboratoryReview[]
+  bookings LaboratoryBooking[]
+
+  @@index([status, city])
+  @@map("laboratory")
+}
+
+model LaboratoryService {
+  id           String   @id @default(cuid())
+  laboratoryId String
+  name         String
+  description  String
+  price        Decimal  @db.Decimal(10, 2)
+  turnaround   String
+  preparation  String
+  popular      Boolean  @default(false)
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  laboratory Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+  bookings   LaboratoryBooking[]
+
+  @@index([laboratoryId, status])
+  @@map("laboratory_service")
+}
+
+model LaboratoryReview {
+  id           String     @id @default(cuid())
+  laboratoryId String
+  authorName   String
+  rating       Int
+  comment      String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  laboratory Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+
+  @@index([laboratoryId, createdAt])
+  @@map("laboratory_review")
+}
+
+model LaboratoryBooking {
+  id                  String            @id @default(cuid())
+  userId              String
+  laboratoryId        String
+  laboratoryServiceId String
+  reservationDate     DateTime          @db.Date
+  queueNumber         Int
+  notes               String?
+  status              String            @default("CONFIRMED")
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  laboratory Laboratory        @relation(fields: [laboratoryId], references: [id], onDelete: Restrict)
+  service    LaboratoryService @relation(fields: [laboratoryServiceId], references: [id], onDelete: Restrict)
+
+  @@unique([laboratoryId, reservationDate, queueNumber])
+  @@index([userId, reservationDate])
+  @@index([laboratoryId, reservationDate])
+  @@map("laboratory_booking")
 }
 
 // DoctorSlot is a bookable time window attached to a doctor
@@ -310,6 +395,10 @@ model Notification {
   title     String
   body      String
   metadata  Json?
+  // Set only for notifications that must be delivered at most once.
+  // PostgreSQL permits multiple NULLs, so regular notifications remain
+  // unrestricted while a reminder key is enforced globally.
+  idempotencyKey String? @unique
   sentAt    DateTime?
   readAt    DateTime?
   createdAt DateTime  @default(now())

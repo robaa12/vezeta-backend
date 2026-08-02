@@ -19,19 +19,16 @@ describe('doctor location DTO multipart transforms', () => {
     expect(dto.longitude).toBe(31.2357);
   });
 
-  it('requires a non-blank clinic address when creating a doctor', () => {
+  it('allows omitting or clearing an address', () => {
     const missing = plainToInstance(CreateDoctorDto, {
       name: 'Dr. Jane Smith',
       categoryId: 'cat1',
     });
-    const blank = plainToInstance(CreateDoctorDto, {
-      name: 'Dr. Jane Smith',
-      categoryId: 'cat1',
-      address: '   ',
-    });
+    const blank = plainToInstance(UpdateDoctorDto, { address: '   ' });
 
-    expect(validateSync(missing)).toHaveLength(1);
-    expect(validateSync(blank)).toHaveLength(1);
+    expect(validateSync(missing)).toHaveLength(0);
+    expect(validateSync(blank)).toHaveLength(0);
+    expect(blank.address).toBe('');
   });
 
   it('converts update coordinates and supports clearing with empty fields', () => {

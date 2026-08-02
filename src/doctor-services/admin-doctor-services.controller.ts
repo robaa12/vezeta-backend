@@ -66,7 +66,8 @@ export class AdminDoctorServicesController {
   @ApiParam({ name: 'doctorId', description: 'Doctor id (cuid)' })
   @ApiOkResponse({ description: 'Service created.' })
   @ApiBadRequestResponse({
-    description: 'Validation error.',
+    description:
+      'Validation error (e.g. a price on an ON_REQUEST service, or no fields).',
   })
   @ApiNotFoundResponse({ description: 'Doctor not found.' })
   create(
@@ -99,7 +100,7 @@ export class AdminDoctorServicesController {
   @ApiParam({ name: 'serviceId', description: 'Service id (cuid)' })
   @ApiOkResponse({ description: 'Service updated.' })
   @ApiBadRequestResponse({
-    description: 'Validation error or no fields to update.',
+    description: 'No fields to update, or pricing mode/price inconsistency.',
   })
   @ApiNotFoundResponse({ description: 'Service not found.' })
   update(
