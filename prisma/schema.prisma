@@ -116,12 +116,23 @@ model Category {
 // categoryId is required and references an ACTIVE Category (feature
 // 005-doctor-categories); the free-text `specialty` column was
 // dropped in this migration.
+//
+// Location fields (address + optional latitude/longitude) are
+// admin-managed free-text / numeric input. The public doctor profile
+// derives a clickable Google Maps URL from these fields: a precise
+// `?q=lat,lng` link when both coordinates are set, otherwise a
+// `?q=<address>` search link. lat/lng consistency (both set or both
+// null) is enforced at the DTO layer; the DB allows either column to
+// be set independently to keep the schema flexible.
 model Doctor {
   id         String   @id @default(cuid())
   name       String
   categoryId String
   bio        String?
   imageUrl   String?
+  address    String?
+  latitude   Float?
+  longitude  Float?
   status     String   @default("ACTIVE")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

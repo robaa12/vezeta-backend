@@ -14,6 +14,7 @@ import { ListDoctorsDto } from './dto/list-doctors.dto.js';
 import { UpdateDoctorDto } from './dto/update-doctor.dto.js';
 import { ListUsersDto } from './dto/list-users.dto.js';
 import { filePathToUrl } from '../upload/multer.config.js';
+import { buildGoogleMapsUrl } from '../doctors/doctor-location.js';
 
 export interface DoctorCategoryRef {
   id: string;
@@ -29,12 +30,20 @@ export interface DoctorServiceRef {
   status: 'ACTIVE' | 'DEACTIVATED';
 }
 
+export interface DoctorLocation {
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  googleMapsUrl: string | null;
+}
+
 export interface DoctorRecord {
   id: string;
   name: string;
   category: DoctorCategoryRef;
   bio: string | null;
   imageUrl: string | null;
+  location: DoctorLocation;
   status: 'ACTIVE' | 'DEACTIVATED';
   services: DoctorServiceRef[];
   createdAt: Date;
@@ -77,6 +86,7 @@ export class AdminService {
         'Cannot assign a doctor to a deactivated category',
       );
     }
+    this.assertCoordinatesConsistent(dto.latitude, dto.longitude);
 
     const imageUrl = image ? filePathToUrl(image.path) : null;
 
@@ -86,6 +96,9 @@ export class AdminService {
         categoryId: dto.categoryId,
         bio: dto.bio ?? null,
         imageUrl,
+        address: this.normalizeAddress(dto.address) ?? null,
+        latitude: dto.latitude ?? null,
+        longitude: dto.longitude ?? null,
         status: 'ACTIVE',
       },
       include: { category: { select: { id: true, name: true } } },
@@ -180,11 +193,26 @@ export class AdminService {
         );
       }
     }
+    this.assertCoordinatesConsistentForUpdate(
+      dto.latitude,
+      dto.longitude,
+      existing.latitude,
+      existing.longitude,
+    );
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.categoryId !== undefined) data.categoryId = dto.categoryId;
     if (dto.bio !== undefined) data.bio = dto.bio;
     if (dto.status !== undefined) data.status = dto.status;
+    if (dto.address !== undefined) {
+      data.address = this.normalizeAddress(dto.address) ?? null;
+    }
+    if (dto.latitude !== undefined) {
+      data.latitude = dto.latitude;
+    }
+    if (dto.longitude !== undefined) {
+      data.longitude = dto.longitude;
+    }
 
     if (image) {
       data.imageUrl = filePathToUrl(image.path);
@@ -589,6 +617,9 @@ export class AdminService {
     name: string;
     bio: string | null;
     imageUrl: string | null;
+    address?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     status: string;
     createdAt: Date;
     updatedAt: Date;
@@ -610,6 +641,7 @@ export class AdminService {
       },
       bio: d.bio,
       imageUrl: d.imageUrl,
+      location: this.toLocation(d),
       status: d.status as DoctorRecord['status'],
       services: (d.services ?? []).map((s) => {
         const price =
@@ -630,6 +662,74 @@ export class AdminService {
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
     };
+  }
+
+  private toLocation(d: {
+    address?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  }): DoctorLocation {
+    const address = d.address ?? null;
+    const latitude = d.latitude ?? null;
+    const longitude = d.longitude ?? null;
+    return {
+      address,
+      latitude,
+      longitude,
+      googleMapsUrl: buildGoogleMapsUrl({ address, latitude, longitude }),
+    };
+  }
+
+  /**
+   * Trim a free-text address; treat an empty/whitespace-only string as
+   * "no address" (returns null) so the stored value is always either a
+   * non-blank string or NULL.
+   */
+  private normalizeAddress(value: string | undefined | null): string | null {
+    if (value === undefined || value === null) return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  /**
+   * On create, both latitude and longitude must be provided together
+   * (or both omitted). Supplying exactly one is rejected with a
+   * 400 so the API can't persist a half-defined location.
+   */
+  private assertCoordinatesConsistent(
+    latitude: number | undefined,
+    longitude: number | undefined,
+  ): void {
+    const latDefined = latitude !== undefined;
+    const lngDefined = longitude !== undefined;
+    if (latDefined !== lngDefined) {
+      throw new BadRequestException(
+        'latitude and longitude must be provided together',
+      );
+    }
+  }
+
+  /**
+   * On PATCH, the cross-field rule still applies: the resulting pair
+   * `(lat, lng)` after the merge must be all-defined or all-null.
+   * `null` is treated as "clear the value"; `undefined` means "no
+   * change" and inherits the existing value.
+   */
+  private assertCoordinatesConsistentForUpdate(
+    incomingLat: number | null | undefined,
+    incomingLng: number | null | undefined,
+    existingLat: number | null,
+    existingLng: number | null,
+  ): void {
+    const nextLat =
+      incomingLat === undefined ? existingLat : (incomingLat as number | null);
+    const nextLng =
+      incomingLng === undefined ? existingLng : (incomingLng as number | null);
+    if ((nextLat === null) !== (nextLng === null)) {
+      throw new BadRequestException(
+        'latitude and longitude must be provided together (set both or clear both)',
+      );
+    }
   }
 
   private computeFinalPrice(

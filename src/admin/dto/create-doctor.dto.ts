@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsLatitude,
+  IsLongitude,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { MAX_DOCTOR_ADDRESS_LENGTH } from '../../common/constants.js';
 
 export class CreateDoctorDto {
   @ApiProperty({
@@ -30,4 +38,37 @@ export class CreateDoctorDto {
   @IsString()
   @MaxLength(2000)
   bio?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Clinic address (free-text, manually entered by the admin). Shown on the public doctor profile. If `latitude`/`longitude` are also provided, the precise Google Maps pin link takes priority; otherwise the address is used as a Google Maps search query.",
+    maxLength: MAX_DOCTOR_ADDRESS_LENGTH,
+    example: '15 Tahrir Square, Cairo, Egypt',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_DOCTOR_ADDRESS_LENGTH)
+  address?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Clinic latitude in decimal degrees (WGS84, -90..90). Must be paired with `longitude`; if exactly one of lat/lng is supplied the request is rejected (enforced in the service layer).",
+    minimum: -90,
+    maximum: 90,
+    example: 30.0444,
+  })
+  @IsOptional()
+  @IsLatitude()
+  latitude?: number;
+
+  @ApiPropertyOptional({
+    description:
+      "Clinic longitude in decimal degrees (WGS84, -180..180). Must be paired with `latitude`.",
+    minimum: -180,
+    maximum: 180,
+    example: 31.2357,
+  })
+  @IsOptional()
+  @IsLongitude()
+  longitude?: number;
 }
