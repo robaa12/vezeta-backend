@@ -563,6 +563,12 @@ export class AdminService {
     if (!existing) {
       throw new NotFoundException('User not found');
     }
+    if (existing.isActive) {
+      throw new ConflictException({
+        message: 'User is already active',
+        error: 'already_active',
+      });
+    }
 
     const updated = await this.prisma.user.update({
       where: { id: userId },

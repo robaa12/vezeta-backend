@@ -335,6 +335,18 @@ describe('AdminService — activateUser', () => {
       select: { id: true, isActive: true, name: true, email: true },
     });
   });
+
+  it('throws Conflict when the user is already active', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      isActive: true,
+    });
+
+    await expect(service.activateUser('u1', 'admin1')).rejects.toThrow(
+      ConflictException,
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('AdminService — Doctor CRUD smoke', () => {

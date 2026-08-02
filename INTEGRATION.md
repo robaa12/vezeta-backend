@@ -310,7 +310,7 @@ See [section 4](#4-authentication-flow) above for the full flow. The custom rout
 - `GET /api/doctors?categoryId=&search=&page=&pageSize=` — anonymous, ACTIVE doctors only, sorted.
 - `GET /api/doctors/:id` — anonymous, single doctor. 404 for DEACTIVATED doctors or DEACTIVATED-category doctors.
 
-Both endpoints are `Cache-Control: public, max-age=…` advisory headers (60s for the list, 300s for the detail). The frontend can use them as a hint for an HTTP cache; the backend does not have an in-process cache.
+Both endpoints send `Cache-Control: no-store` so clients do not show stale catalog data after an admin update. The backend does not have an in-process cache.
 
 ### 10.3 `categories` — public vocabulary + admin CRUD
 
@@ -342,7 +342,7 @@ Each service has a `finalPrice` (computed: price minus discount). `discountPerce
 
 ### 10.4 `slots` — public slot picker
 
-- `GET /api/doctors/:doctorId/slots` — anonymous, AVAILABLE slots for an ACTIVE doctor in an ACTIVE category, sorted ascending by start time. 60s `Cache-Control` hint. 404 for missing/DEACTIVATED doctors.
+- `GET /api/doctors/:doctorId/slots` — anonymous, future AVAILABLE slots for an ACTIVE doctor in an ACTIVE category, sorted ascending by start time. Sends `Cache-Control: no-store`. 404 for missing/DEACTIVATED doctors.
 
 The slot id is what the patient posts to book.
 
@@ -398,14 +398,14 @@ The backend sends these notifications automatically via cron + event listeners. 
 
 All routes require the `admin` role **and** an active account. The list below is grouped by surface — see the spec for the full DTOs.
 
-**Doctors:** list/create/get/update/deactivate (soft)/hard-delete. The create and update endpoints accept `multipart/form-data` with an optional `image` file field for the profile photo (see §12.1).
-**Slots:** create/list/get/update/block (soft)/hard-delete
+**Doctors:** list/create/get/update/deactivate/activate (soft status changes)/hard-delete. The create and update endpoints accept `multipart/form-data` with an optional `image` file field for the profile photo (see §12.1).
+**Slots:** create/list/get/update/block (soft)/soft-delete. Deleted slots are hidden from admin listings while retaining appointment history.
 **Appointments:** list/get + lifecycle transitions: `confirm` (PENDING→CONFIRMED), `cancel` (any→CANCELLED), `complete` (CONFIRMED→COMPLETED, only if `scheduledAt` is in the past)
-**Users:** list/get/change-role (last-active-admin demotion rejected)/deactivate
+**Users:** list/get/change-role (last-active-admin demotion rejected)/deactivate/activate
 **Categories:** full CRUD + soft-deactivate (see §10.3)
 **Doctor services:** full CRUD + soft-deactivate (see §10.4)
 **Reviews:** list moderation / delete
-**Medical records:** create/update (admin authors on behalf of the treating doctor; patients read via the public read endpoints)
+**Medical records:** get/create/update (admin authors on behalf of the treating doctor; `GET /api/admin/appointments/:id/medical-record` returns `{ medicalRecord: null }` when absent; patients read via the public read endpoints)
 **Stats:** `GET /api/admin/stats` — aggregated dashboard counts
 **Ping:** `GET /api/admin/ping` — liveness (anonymous, no auth — used by ops)
 
@@ -417,9 +417,9 @@ The backend sends `Cache-Control` advisory headers on the public catalog endpoin
 
 | Endpoint                       | `Cache-Control`       |
 | ------------------------------ | --------------------- |
-| `GET /api/doctors`             | `public, max-age=60`  |
-| `GET /api/doctors/:id`         | `public, max-age=300` |
-| `GET /api/doctors/:id/slots`   | `public, max-age=60`  |
+| `GET /api/doctors`             | `no-store`            |
+| `GET /api/doctors/:id`         | `no-store`            |
+| `GET /api/doctors/:id/slots`   | `no-store`            |
 | `GET /api/doctors/:id/reviews` | `public, max-age=60`  |
 | `GET /api/categories`          | `public, max-age=300` |
 

@@ -372,6 +372,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Activate a user account' })
   @ApiParam({ name: 'id', description: 'User id' })
   @ApiNotFoundResponse({ description: 'User not found.' })
+  @ApiConflictResponse({ description: 'User is already active.' })
   activateUser(
     @Param('id') id: string,
     @CurrentUser() admin: SessionUser,
