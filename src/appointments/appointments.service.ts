@@ -31,6 +31,9 @@ import {
 } from './dto/slot-response.dto.js';
 import { APPOINTMENT_CANCEL_CUTOFF_HOURS } from '../common/constants.js';
 
+const VISIBLE_SLOT_STATUSES = ['AVAILABLE', 'BOOKED', 'BLOCKED'] as const;
+const DELETED_SLOT_STATUS = 'DELETED';
+
 @Injectable()
 export class AppointmentsService {
   constructor(
@@ -49,6 +52,7 @@ export class AppointmentsService {
       where: {
         doctorId,
         status: 'AVAILABLE',
+        startsAt: { gt: new Date() },
         doctor: { status: 'ACTIVE', category: { status: 'ACTIVE' } },
       },
       orderBy: { startsAt: 'asc' },
@@ -128,7 +132,7 @@ export class AppointmentsService {
     const pageSize = query.pageSize ?? 20;
     const where: Record<string, unknown> = {};
     if (query.doctorId) where.doctorId = query.doctorId;
-    if (query.status) where.status = query.status;
+    where.status = query.status ?? { in: [...VISIBLE_SLOT_STATUSES] };
     const [records, total] = await Promise.all([
       this.prisma.doctorSlot.findMany({
         where,
@@ -147,7 +151,9 @@ export class AppointmentsService {
   }
 
   async getAdminSlot(id: string): Promise<SlotResponseDto> {
-    const slot = await this.prisma.doctorSlot.findUnique({ where: { id } });
+    const slot = await this.prisma.doctorSlot.findFirst({
+      where: { id, status: { in: [...VISIBLE_SLOT_STATUSES] } },
+    });
     if (!slot) {
       throw new NotFoundException('Slot not found');
     }
@@ -155,7 +161,9 @@ export class AppointmentsService {
   }
 
   async updateSlot(id: string, dto: UpdateSlotDto): Promise<SlotResponseDto> {
-    const existing = await this.prisma.doctorSlot.findUnique({ where: { id } });
+    const existing = await this.prisma.doctorSlot.findFirst({
+      where: { id, status: { in: [...VISIBLE_SLOT_STATUSES] } },
+    });
     if (!existing) {
       throw new NotFoundException('Slot not found');
     }
@@ -175,7 +183,9 @@ export class AppointmentsService {
   }
 
   async blockSlot(id: string): Promise<SlotResponseDto> {
-    const existing = await this.prisma.doctorSlot.findUnique({ where: { id } });
+    const existing = await this.prisma.doctorSlot.findFirst({
+      where: { id, status: { in: [...VISIBLE_SLOT_STATUSES] } },
+    });
     if (!existing) {
       throw new NotFoundException('Slot not found');
     }
@@ -197,16 +207,30 @@ export class AppointmentsService {
 
   async deleteSlot(id: string): Promise<void> {
     const existing = await this.prisma.doctorSlot.findUnique({ where: { id } });
-    if (!existing) {
+    if (!existing || existing.status === DELETED_SLOT_STATUS) {
       throw new NotFoundException('Slot not found');
     }
-    if (existing.status !== 'AVAILABLE') {
+    if (!['AVAILABLE', 'BLOCKED'].includes(existing.status)) {
       throw new ConflictException({
-        message: 'Only AVAILABLE slots can be deleted',
+        message: 'Only AVAILABLE or BLOCKED slots can be deleted',
         error: 'slot_not_deletable',
       });
     }
-    await this.prisma.doctorSlot.delete({ where: { id } });
+
+    // Slots can become AVAILABLE again after an appointment is cancelled.
+    // The appointment must remain for medical/audit history, so a physical
+    // delete would violate appointment_slotId_fkey. A tombstone removes the
+    // slot from every listing without destroying that history.
+    const result = await this.prisma.doctorSlot.updateMany({
+      where: { id, status: { in: ['AVAILABLE', 'BLOCKED'] } },
+      data: { status: DELETED_SLOT_STATUS },
+    });
+    if (result.count === 0) {
+      throw new ConflictException({
+        message: 'Slot is no longer available',
+        error: 'slot_not_deletable',
+      });
+    }
   }
 
   // =========================================================================
@@ -390,6 +414,7 @@ export class AppointmentsService {
               category: { select: { id: true, name: true } },
             },
           },
+          review: { select: { id: true } },
         },
       }),
       this.prisma.appointment.count({ where }),
@@ -484,6 +509,8 @@ export class AppointmentsService {
               category: { select: { id: true, name: true } },
             },
           },
+          user: { select: { id: true, name: true } },
+          review: { select: { id: true } },
         },
       }),
       this.prisma.appointment.count({ where }),
@@ -515,6 +542,8 @@ export class AppointmentsService {
             category: { select: { id: true, name: true } },
           },
         },
+        user: { select: { id: true, name: true } },
+        review: { select: { id: true } },
       },
     });
     if (!appt) {
@@ -800,6 +829,8 @@ export class AppointmentsService {
       name: string;
       category: { id: string; name: string };
     };
+    user?: { id: string; name: string };
+    review?: { id: string } | null;
   }): AppointmentResponseDto {
     return {
       id: a.id,
@@ -813,6 +844,8 @@ export class AppointmentsService {
         name: a.doctor.name,
         category: { id: a.doctor.category.id, name: a.doctor.category.name },
       },
+      ...(a.user ? { patient: { id: a.user.id, name: a.user.name } } : {}),
+      hasReview: Boolean(a.review),
       createdAt: a.createdAt,
       updatedAt: a.updatedAt,
     };

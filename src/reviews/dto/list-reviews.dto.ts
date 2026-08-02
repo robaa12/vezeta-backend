@@ -1,6 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class ListReviewsDto {
   @ApiPropertyOptional({ description: '1-based page number.', default: 1 })
@@ -17,4 +24,18 @@ export class ListReviewsDto {
   @Min(1)
   @Max(100)
   pageSize?: number;
+}
+
+export class ListAdminReviewsDto extends ListReviewsDto {
+  @ApiPropertyOptional({ description: 'Filter by doctor id.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  doctorId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by patient user id.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  userId?: string;
 }

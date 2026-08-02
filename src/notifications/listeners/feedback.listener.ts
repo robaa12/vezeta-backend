@@ -23,7 +23,7 @@ export class FeedbackListener {
     await this.notifications.enqueue({
       userId: payload.userId,
       title: 'Review submitted',
-      body: `Thank you for reviewing ${payload.doctorName}. Your ${payload.rating}-star rating helps other patients.`,
+      body: `Thank you for reviewing ${payload.doctorName}. Your ${payload.rating}-star review is now visible on the doctor profile.`,
       metadata: { kind: 'review.posted', reviewId: payload.reviewId },
     });
   }

@@ -290,6 +290,65 @@ describe('AdminService — deactivateUser last-admin guard', () => {
   });
 });
 
+describe('AdminService — activateUser', () => {
+  let service: AdminService;
+  let prisma: ReturnType<typeof mockPrisma>;
+
+  beforeEach(async () => {
+    prisma = mockPrisma();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AdminService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: mockAudit() },
+      ],
+    }).compile();
+    service = module.get(AdminService);
+  });
+
+  it('throws NotFound when the user does not exist', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(null);
+    await expect(service.activateUser('u1', 'admin1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('activates an inactive user and records the action', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      isActive: false,
+    });
+    prisma.user.update.mockResolvedValueOnce({
+      id: 'u1',
+      isActive: true,
+      name: 'X',
+      email: 'x@x.com',
+    });
+
+    await expect(service.activateUser('u1', 'admin1')).resolves.toMatchObject({
+      id: 'u1',
+      isActive: true,
+    });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { isActive: true },
+      select: { id: true, isActive: true, name: true, email: true },
+    });
+  });
+
+  it('throws Conflict when the user is already active', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      isActive: true,
+    });
+
+    await expect(service.activateUser('u1', 'admin1')).rejects.toThrow(
+      ConflictException,
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+});
+
 describe('AdminService — Doctor CRUD smoke', () => {
   let service: AdminService;
   let prisma: ReturnType<typeof mockPrisma>;
@@ -357,6 +416,41 @@ describe('AdminService — Doctor CRUD smoke', () => {
     await expect(service.deactivateDoctor('d1', 'admin1')).rejects.toThrow(
       ConflictException,
     );
+  });
+
+  it('activateDoctor returns an active doctor', async () => {
+    prisma.doctor.findUnique.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'A',
+      categoryId: 'cat1',
+      category: { id: 'cat1', name: 'Cardiology' },
+      bio: null,
+      imageUrl: null,
+      status: 'DEACTIVATED',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    prisma.doctor.update.mockResolvedValueOnce({
+      id: 'd1',
+      name: 'A',
+      categoryId: 'cat1',
+      category: { id: 'cat1', name: 'Cardiology' },
+      bio: null,
+      imageUrl: null,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await expect(service.activateDoctor('d1', 'admin1')).resolves.toMatchObject({
+      id: 'd1',
+      status: 'ACTIVE',
+    });
+    expect(prisma.doctor.update).toHaveBeenCalledWith({
+      where: { id: 'd1' },
+      data: { status: 'ACTIVE' },
+      include: { category: { select: { id: true, name: true } } },
+    });
   });
 
   it('deleteDoctor succeeds when doctor exists and has no history', async () => {
@@ -621,6 +715,35 @@ describe('AdminService — listDoctors with categoryId filter (US2)', () => {
         { category: { name: { contains: 'cardio', mode: 'insensitive' } } },
       ],
     });
+  });
+
+  it('returns the real service relation count for every doctor', async () => {
+    prisma.doctor.findMany.mockResolvedValueOnce([
+      {
+        id: 'd1',
+        name: 'Dr. X',
+        category: { id: 'cat1', name: 'Cardiology' },
+        bio: null,
+        imageUrl: null,
+        status: 'ACTIVE',
+        _count: { services: 3 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    prisma.doctor.count.mockResolvedValueOnce(1);
+
+    const result = await service.listDoctors({});
+
+    expect(result.doctors[0]?.serviceCount).toBe(3);
+    expect(prisma.doctor.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: {
+          category: { select: { id: true, name: true } },
+          _count: { select: { services: true } },
+        },
+      }),
+    );
   });
 });
 

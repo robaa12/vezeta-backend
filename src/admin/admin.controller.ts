@@ -83,10 +83,23 @@ const DOCTOR_RESPONSE_SCHEMA = {
       items: { type: 'object' },
       description: 'Per-doctor service catalog (admin view).',
     },
+    serviceCount: {
+      type: 'integer',
+      minimum: 0,
+      description: 'Total number of services configured for this doctor.',
+    },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
   },
-  required: ['id', 'name', 'category', 'status', 'createdAt', 'updatedAt'],
+  required: [
+    'id',
+    'name',
+    'category',
+    'status',
+    'serviceCount',
+    'createdAt',
+    'updatedAt',
+  ],
 };
 
 const DOCTOR_WRAPPED_SCHEMA = {
@@ -280,6 +293,24 @@ export class AdminController {
       .then((doctor) => ({ doctor }));
   }
 
+  @Patch('doctors/:id/activate')
+  @ApiOperation({ summary: 'Activate a doctor' })
+  @ApiParam({ name: 'id', description: 'Doctor id' })
+  @ApiOkResponse({
+    description: 'Doctor activated.',
+    schema: DOCTOR_WRAPPED_SCHEMA,
+  })
+  @ApiNotFoundResponse({ description: 'Doctor not found.' })
+  @ApiConflictResponse({ description: 'Doctor is already active.' })
+  activateDoctor(
+    @Param('id') id: string,
+    @CurrentUser() admin: SessionUser,
+  ): Promise<{ doctor: DoctorRecord }> {
+    return this.adminService
+      .activateDoctor(id, admin.id)
+      .then((doctor) => ({ doctor }));
+  }
+
   @Delete('doctors/:id')
   @HttpCode(204)
   @ApiOperation({ summary: 'Hard-delete a doctor' })
@@ -334,6 +365,23 @@ export class AdminController {
   }> {
     return this.adminService
       .deactivateUser(id, admin.id)
+      .then((user) => ({ success: true as const, user }));
+  }
+
+  @Patch('users/:id/activate')
+  @ApiOperation({ summary: 'Activate a user account' })
+  @ApiParam({ name: 'id', description: 'User id' })
+  @ApiNotFoundResponse({ description: 'User not found.' })
+  @ApiConflictResponse({ description: 'User is already active.' })
+  activateUser(
+    @Param('id') id: string,
+    @CurrentUser() admin: SessionUser,
+  ): Promise<{
+    success: true;
+    user: { id: string; isActive: boolean; name: string; email: string };
+  }> {
+    return this.adminService
+      .activateUser(id, admin.id)
       .then((user) => ({ success: true as const, user }));
   }
 
