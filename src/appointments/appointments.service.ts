@@ -427,6 +427,38 @@ export class AppointmentsService {
     };
   }
 
+  async getMyAppointment(
+    userId: string,
+    appointmentId: string,
+  ): Promise<{ appointment: AppointmentResponseDto }> {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id: appointmentId, userId },
+      select: {
+        id: true,
+        status: true,
+        scheduledAt: true,
+        patientNotes: true,
+        cancelledAt: true,
+        cancelledBy: true,
+        createdAt: true,
+        updatedAt: true,
+        doctor: {
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true,
+            category: { select: { id: true, name: true } },
+          },
+        },
+        review: { select: { id: true } },
+      },
+    });
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+    return { appointment: this.toAppointmentResponse(appointment) };
+  }
+
   /**
    * Patient self-cancel. Enforces the 24-hour cutoff at the service
    * layer. Returns 404 (not 403) for cross-patient access (information
@@ -827,6 +859,7 @@ export class AppointmentsService {
     doctor: {
       id: string;
       name: string;
+      imageUrl?: string | null;
       category: { id: string; name: string };
     };
     user?: { id: string; name: string };
@@ -842,6 +875,9 @@ export class AppointmentsService {
       doctor: {
         id: a.doctor.id,
         name: a.doctor.name,
+        ...(a.doctor.imageUrl !== undefined
+          ? { imageUrl: a.doctor.imageUrl }
+          : {}),
         category: { id: a.doctor.category.id, name: a.doctor.category.name },
       },
       ...(a.user ? { patient: { id: a.user.id, name: a.user.name } } : {}),

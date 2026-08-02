@@ -83,6 +83,21 @@ export class AppointmentsController {
     return this.appointmentsService.listMyAppointments(user.id, query);
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Get one of my appointments (patient)' })
+  @ApiOkResponse({ description: 'Appointment details.' })
+  @ApiUnauthorizedResponse({ description: 'No active session.' })
+  @ApiNotFoundResponse({
+    description:
+      'Appointment does not exist or belongs to a different patient.',
+  })
+  getMine(
+    @Param('id') id: string,
+    @CurrentUser() user: SessionUser,
+  ): Promise<{ appointment: AppointmentResponseDto }> {
+    return this.appointmentsService.getMyAppointment(user.id, id);
+  }
+
   /**
    * US5 — Patient cancels their own appointment. Enforces the
    * 24-hour cutoff (403 within 24h, 404 cross-patient).

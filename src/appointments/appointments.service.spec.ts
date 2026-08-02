@@ -679,6 +679,7 @@ describe('AppointmentsService — listMyAppointments (US4)', () => {
       },
       appointment: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         findUnique: jest.fn(),
         count: jest.fn(),
         create: jest.fn(),
@@ -754,6 +755,40 @@ describe('AppointmentsService — listMyAppointments (US4)', () => {
     const select = (prisma['appointment'].findMany as jest.Mock).mock
       .calls[0]?.[0]?.select;
     expect(select).toMatchObject({ review: { select: { id: true } } });
+  });
+
+  it('gets a patient appointment using an ownership-scoped query', async () => {
+    (prisma['appointment'].findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 'a1',
+      status: 'COMPLETED',
+      scheduledAt: new Date('2026-07-27T09:00:00Z'),
+      patientNotes: 'Follow-up visit',
+      cancelledAt: null,
+      cancelledBy: null,
+      createdAt: new Date('2026-07-01T09:00:00Z'),
+      updatedAt: new Date('2026-07-27T10:00:00Z'),
+      doctor: {
+        id: 'd1',
+        name: 'Dr. X',
+        category: { id: 'c1', name: 'Cardiology' },
+      },
+      review: null,
+    });
+
+    const result = await service.getMyAppointment('u1', 'a1');
+
+    expect(result.appointment.id).toBe('a1');
+    expect(prisma['appointment'].findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'a1', userId: 'u1' } }),
+    );
+  });
+
+  it('returns 404 when a patient cannot access an appointment', async () => {
+    (prisma['appointment'].findFirst as jest.Mock).mockResolvedValueOnce(null);
+
+    await expect(service.getMyAppointment('u1', 'other')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('includes the patient name in an admin appointment response', async () => {
