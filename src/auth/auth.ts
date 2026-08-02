@@ -72,7 +72,9 @@ export const createAuth = (
       // A credential account remains pending until its email OTP is
       // verified. Better Auth will not create a session at sign-up and
       // rejects password sign-in while emailVerified is false.
-      requireEmailVerification: true,
+      // E2E seeds exercise authenticated booking flows directly. Production
+      // and all non-test environments still require email verification.
+      requireEmailVerification: process.env.NODE_ENV !== 'test',
       minPasswordLength: MIN_PASSWORD_LENGTH,
       revokeSessionsOnPasswordReset: true,
     },

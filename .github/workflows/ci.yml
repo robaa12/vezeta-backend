@@ -17,6 +17,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx prisma generate
       - run: npx eslint "src/**/*.ts"
 
   typecheck:
@@ -29,6 +30,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx prisma generate
       - run: npm run build
 
   test:
