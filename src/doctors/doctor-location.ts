@@ -1,16 +1,13 @@
-// Shared helper for building a Google Maps deep link from the free-text
-// `address` and optional `latitude` / `longitude` fields on a Doctor.
+// Shared helper for building a Google Maps deep link from a doctor's
+// optional `latitude` / `longitude` map pin.
 //
-// Resolution order:
+// Rules:
 //   1. If BOTH latitude and longitude are set, return a precise
 //      `https://www.google.com/maps?q=<lat>,<lng>` link that drops a pin
 //      on the exact location.
-//   2. Otherwise, if `address` is a non-empty trimmed string, return
-//      a `https://www.google.com/maps?q=<urlencoded address>` search
-//      link. Google Maps geocodes the query and shows the result.
-//   3. If neither is available, return null. Callers should treat null
-//      as "this doctor has no mappable location yet" and hide the
-//      "View on map" link in the UI.
+//   2. Otherwise return null, even when an address exists. The written
+//      address remains visible as plain text, but a Maps action must only
+//      appear after an admin deliberately picks a precise point on the map.
 //
 // Coordinates are formatted with up to 7 decimal places (~11 mm
 // precision) — that's the precision Google Maps' `q=` parameter
@@ -42,10 +39,6 @@ export function buildGoogleMapsUrl(
     Number.isFinite(lng)
   ) {
     return `${GOOGLE_MAPS_BASE}?q=${formatCoord(lat)},${formatCoord(lng)}`;
-  }
-  const address = location.address?.trim();
-  if (address && address.length > 0) {
-    return `${GOOGLE_MAPS_BASE}?q=${encodeURIComponent(address)}`;
   }
   return null;
 }

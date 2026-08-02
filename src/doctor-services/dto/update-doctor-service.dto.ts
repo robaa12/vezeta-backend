@@ -10,7 +10,6 @@ import {
   MaxLength,
   Min,
   MinLength,
-  ValidateIf,
 } from 'class-validator';
 
 export class UpdateDoctorServiceDto {
@@ -30,7 +29,7 @@ export class UpdateDoctorServiceDto {
 
   @ApiPropertyOptional({
     description:
-      'New service price (no currency). ON_REQUEST services must not have a price. Must be non-negative and at most 99999999.99.',
+      'New service price (no currency). Omit to keep unchanged, pass null to clear, or supply a number to set. ON_REQUEST services must not have a price.',
     type: Number,
     nullable: true,
     minimum: 0,
@@ -44,15 +43,16 @@ export class UpdateDoctorServiceDto {
 
   @ApiPropertyOptional({
     description:
-      'New discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price.',
+      'New discount percentage 0-100. Omit to keep unchanged, pass null to clear, or supply a number to set. ON_REQUEST services may use a discount without a known price.',
     minimum: 0,
     maximum: 100,
+    nullable: true,
   })
-  @ValidateIf((o: UpdateDoctorServiceDto) => o.discountPercent !== undefined)
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(100)
-  discountPercent?: number;
+  discountPercent?: number | null;
 
   @ApiPropertyOptional({
     description:

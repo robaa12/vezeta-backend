@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, type TransformFnParams } from 'class-transformer';
 import {
   IsIn,
   IsLatitude,
@@ -10,6 +10,13 @@ import {
   MinLength,
 } from 'class-validator';
 import { MAX_DOCTOR_ADDRESS_LENGTH } from '../../common/constants.js';
+
+function transformNullableCoordinate({ value }: TransformFnParams): unknown {
+  if (value === null || value === '' || value === 'null') return null;
+  if (typeof value === 'number') return value;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? value : parsed;
+}
 
 export class UpdateDoctorDto {
   @ApiPropertyOptional({ minLength: 2, maxLength: 120 })
@@ -41,6 +48,9 @@ export class UpdateDoctorDto {
     maxLength: MAX_DOCTOR_ADDRESS_LENGTH,
   })
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MaxLength(MAX_DOCTOR_ADDRESS_LENGTH)
   address?: string;
@@ -54,7 +64,7 @@ export class UpdateDoctorDto {
     nullable: true,
   })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(transformNullableCoordinate)
   @IsLatitude()
   latitude?: number | null;
 
@@ -67,7 +77,7 @@ export class UpdateDoctorDto {
     nullable: true,
   })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(transformNullableCoordinate)
   @IsLongitude()
   longitude?: number | null;
 

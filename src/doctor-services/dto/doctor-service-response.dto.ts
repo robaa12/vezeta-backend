@@ -24,7 +24,8 @@ export class DoctorServiceResponseDto {
   pricingMode!: 'FIXED' | 'ON_REQUEST';
 
   @ApiPropertyOptional({
-    description: 'Discount percentage 0-100. Null when no discount.',
+    description:
+      'Independent discount percentage 0-100. May be set when price is null. Null when no discount.',
     example: 10,
     minimum: 0,
     maximum: 100,

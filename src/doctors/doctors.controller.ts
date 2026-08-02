@@ -23,10 +23,13 @@ import {
 } from './doctors.service.js';
 import { ListPublicDoctorsDto } from './dto/list-doctors.dto.js';
 
+// Public-facing doctor schemas. The list item is intentionally lighter
+// (no bio or services), while still including the image and aggregate
+// rating needed by catalog cards. The detail item is the full record.
 const PUBLIC_DOCTOR_LOCATION_SCHEMA = {
   type: 'object',
   description:
-    'Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.',
+    'Clinic location. googleMapsUrl is available only when an admin selected an exact Google Maps pin.',
   properties: {
     address: { type: 'string', nullable: true },
     latitude: { type: 'number', nullable: true, minimum: -90, maximum: 90 },
@@ -36,14 +39,17 @@ const PUBLIC_DOCTOR_LOCATION_SCHEMA = {
       minimum: -180,
       maximum: 180,
     },
-    googleMapsUrl: { type: 'string', nullable: true, format: 'uri' },
+    googleMapsUrl: {
+      type: 'string',
+      nullable: true,
+      format: 'uri',
+      description:
+        'Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null.',
+    },
   },
   required: ['address', 'latitude', 'longitude', 'googleMapsUrl'],
 };
 
-// Public-facing doctor schemas. The list item is intentionally lighter
-// (no bio or services), while still including the image and aggregate
-// rating needed by catalog cards. The detail item is the full record.
 const PUBLIC_DOCTOR_LIST_ITEM_SCHEMA = {
   type: 'object',
   properties: {
@@ -137,7 +143,7 @@ export class DoctorsController {
   @ApiOperation({
     summary: 'List ACTIVE doctors (public)',
     description:
-      'Anonymous-accessible listing of doctors. Optional filters: categoryId (FK equality, requires the category to be ACTIVE) and search (case-insensitive substring on name + category.name). Pagination via page (default 1) and pageSize (default 20, max 100).',
+      'Anonymous-accessible listing of doctors. Optional filters: categoryId (FK equality, requires the category to be ACTIVE) and search (case-insensitive substring on doctor name, category name, or clinic address). Pagination via page (default 1) and pageSize (default 20, max 100).',
   })
   @ApiOkResponse({
     description: 'Paginated list of doctors.',

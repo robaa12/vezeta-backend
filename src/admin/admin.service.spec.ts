@@ -15,6 +15,7 @@ const mockPrisma = () => {
   return {
     user: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       count: jest.fn(),
       groupBy: jest.fn(),
       update: jest.fn(),
@@ -42,6 +43,60 @@ const mockPrisma = () => {
     $transaction: jest.fn(),
   };
 };
+
+describe('AdminService — listUsers', () => {
+  let service: AdminService;
+  let prisma: ReturnType<typeof mockPrisma>;
+
+  beforeEach(async () => {
+    prisma = mockPrisma();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AdminService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: mockAudit() },
+      ],
+    }).compile();
+    service = module.get(AdminService);
+  });
+
+  it('returns phone numbers and searches by phone', async () => {
+    const createdAt = new Date('2026-08-01T10:00:00.000Z');
+    const updatedAt = new Date('2026-08-01T10:00:00.000Z');
+    prisma.user.findMany.mockResolvedValueOnce([
+      {
+        id: 'u1',
+        name: 'Ahmed',
+        email: 'ahmed@example.com',
+        phoneNumber: '+201012345678',
+        role: 'user',
+        isActive: true,
+        createdAt,
+        updatedAt,
+      },
+    ]);
+    prisma.user.count.mockResolvedValueOnce(1);
+
+    const result = await service.listUsers({ search: '+2010' });
+
+    expect(result.users[0]?.phoneNumber).toBe('+201012345678');
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: expect.arrayContaining([
+            {
+              phoneNumber: {
+                contains: '+2010',
+                mode: 'insensitive',
+              },
+            },
+          ]),
+        },
+        select: expect.objectContaining({ phoneNumber: true }),
+      }),
+    );
+  });
+});
 
 describe('AdminService — changeUserRole', () => {
   let service: AdminService;
@@ -336,7 +391,6 @@ describe('AdminService — activateUser', () => {
       select: { id: true, isActive: true, name: true, email: true },
     });
   });
-
   it('throws Conflict when the user is already active', async () => {
     prisma.user.findUnique.mockResolvedValueOnce({
       id: 'u1',
@@ -443,10 +497,12 @@ describe('AdminService — Doctor CRUD smoke', () => {
       updatedAt: new Date(),
     });
 
-    await expect(service.activateDoctor('d1', 'admin1')).resolves.toMatchObject({
-      id: 'd1',
-      status: 'ACTIVE',
-    });
+    await expect(service.activateDoctor('d1', 'admin1')).resolves.toMatchObject(
+      {
+        id: 'd1',
+        status: 'ACTIVE',
+      },
+    );
     expect(prisma.doctor.update).toHaveBeenCalledWith({
       where: { id: 'd1' },
       data: { status: 'ACTIVE' },

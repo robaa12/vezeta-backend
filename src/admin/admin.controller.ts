@@ -53,6 +53,32 @@ import { MAX_DOCTOR_ADDRESS_LENGTH } from '../common/constants.js';
 // endpoint so the generated OpenAPI surface documents `imageUrl` (and
 // the rest of the doctor shape) the same way for create, update,
 // get, and list responses.
+const DOCTOR_LOCATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    address: {
+      type: 'string',
+      nullable: true,
+      description: 'Public clinic address entered by an admin.',
+    },
+    latitude: { type: 'number', nullable: true, minimum: -90, maximum: 90 },
+    longitude: {
+      type: 'number',
+      nullable: true,
+      minimum: -180,
+      maximum: 180,
+    },
+    googleMapsUrl: {
+      type: 'string',
+      nullable: true,
+      format: 'uri',
+      description:
+        'Generated Google Maps link using coordinates when available, otherwise the address.',
+    },
+  },
+  required: ['address', 'latitude', 'longitude', 'googleMapsUrl'],
+};
+
 const DOCTOR_RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
@@ -78,28 +104,7 @@ const DOCTOR_RESPONSE_SCHEMA = {
         "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
       example: '/uploads/doctors/clx123abc.jpg',
     },
-    location: {
-      type: 'object',
-      description:
-        'Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.',
-      properties: {
-        address: { type: 'string', nullable: true },
-        latitude: { type: 'number', nullable: true, minimum: -90, maximum: 90 },
-        longitude: {
-          type: 'number',
-          nullable: true,
-          minimum: -180,
-          maximum: 180,
-        },
-        googleMapsUrl: {
-          type: 'string',
-          nullable: true,
-          format: 'uri',
-          description: 'Google Maps link for the clinic location.',
-        },
-      },
-      required: ['address', 'latitude', 'longitude', 'googleMapsUrl'],
-    },
+    location: DOCTOR_LOCATION_SCHEMA,
     status: { type: 'string', enum: ['ACTIVE', 'DEACTIVATED'] },
     services: {
       type: 'array',
@@ -130,6 +135,34 @@ const DOCTOR_WRAPPED_SCHEMA = {
   type: 'object',
   properties: { doctor: DOCTOR_RESPONSE_SCHEMA },
   required: ['doctor'],
+};
+
+const USER_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    email: { type: 'string', format: 'email' },
+    phoneNumber: {
+      type: 'string',
+      nullable: true,
+      description: 'The phone number supplied by the user, or null if absent.',
+    },
+    role: { type: 'string', enum: ['user', 'admin'] },
+    isActive: { type: 'boolean' },
+    createdAt: { type: 'string', format: 'date-time' },
+    updatedAt: { type: 'string', format: 'date-time' },
+  },
+  required: [
+    'id',
+    'name',
+    'email',
+    'phoneNumber',
+    'role',
+    'isActive',
+    'createdAt',
+    'updatedAt',
+  ],
 };
 
 // Multipart request-body schemas. The @nestjs/swagger plugin derives
@@ -457,14 +490,14 @@ export class AdminController {
   @ApiOperation({
     summary: 'List users (admin)',
     description:
-      'Paginated list of all users. Filterable by role, isActive status, and search (name/email).',
+      'Paginated list of all users. Filterable by role, isActive status, and search (name/email/phone).',
   })
   @ApiOkResponse({
     description: 'Paginated list of users.',
     schema: {
       type: 'object',
       properties: {
-        users: { type: 'array', items: { type: 'object' } },
+        users: { type: 'array', items: USER_RESPONSE_SCHEMA },
         total: { type: 'integer' },
         page: { type: 'integer' },
         pageSize: { type: 'integer' },

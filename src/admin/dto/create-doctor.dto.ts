@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsLatitude,
   IsLongitude,
@@ -39,13 +39,15 @@ export class CreateDoctorDto {
   @IsString()
   @MaxLength(2000)
   bio?: string;
-
   @ApiPropertyOptional({
     description:
-      "Clinic address (free-text, manually entered by the admin). Shown on the public doctor profile. If `latitude`/`longitude` are also provided, the precise Google Maps pin link takes priority; otherwise the address is used as a Google Maps search query.",
+      'Clinic address. Coordinates take priority for Google Maps; otherwise the address is used as a search query.',
     maxLength: MAX_DOCTOR_ADDRESS_LENGTH,
     example: '15 Tahrir Square, Cairo, Egypt',
   })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsOptional()
   @IsString()
   @MaxLength(MAX_DOCTOR_ADDRESS_LENGTH)

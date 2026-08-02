@@ -138,7 +138,9 @@ export class DoctorServicesService {
           : Number(existing.price)
         : dto.price;
     const discountPercent =
-      dto.discountPercent ?? existing.discountPercent ?? undefined;
+      dto.discountPercent === undefined
+        ? existing.discountPercent
+        : dto.discountPercent;
     this.validatePricing(pricingMode, price, discountPercent);
 
     let updated: DoctorServiceRow;

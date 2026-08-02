@@ -57,11 +57,16 @@ export interface UserRecord {
   id: string;
   name: string;
   email: string;
+  phoneNumber: string | null;
   role: UserRole;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
+
+type DoctorWithCategory = Prisma.DoctorGetPayload<{
+  include: { category: { select: { id: true; name: true } } };
+}>;
 
 @Injectable()
 export class AdminService {
@@ -92,7 +97,7 @@ export class AdminService {
     this.assertCoordinatesConsistent(dto.latitude, dto.longitude);
 
     const imageUrl = image ? await saveDoctorImage(image) : null;
-    let created;
+    let created: DoctorWithCategory;
     try {
       created = await this.prisma.doctor.create({
         data: {
@@ -231,7 +236,7 @@ export class AdminService {
     if (Object.keys(data).length === 0) {
       throw new ConflictException('No fields to update');
     }
-    let updated;
+    let updated: DoctorWithCategory;
     try {
       updated = await this.prisma.doctor.update({
         where: { id },
@@ -374,6 +379,7 @@ export class AdminService {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' } },
         { email: { contains: query.search, mode: 'insensitive' } },
+        { phoneNumber: { contains: query.search, mode: 'insensitive' } },
       ];
     }
 
@@ -384,6 +390,7 @@ export class AdminService {
           id: true,
           name: true,
           email: true,
+          phoneNumber: true,
           role: true,
           isActive: true,
           createdAt: true,
@@ -401,6 +408,7 @@ export class AdminService {
         id: r.id,
         name: r.name,
         email: r.email,
+        phoneNumber: r.phoneNumber ?? null,
         role: r.role as UserRole,
         isActive: r.isActive,
         createdAt: r.createdAt,
@@ -419,6 +427,7 @@ export class AdminService {
         id: true,
         name: true,
         email: true,
+        phoneNumber: true,
         role: true,
         isActive: true,
         createdAt: true,
@@ -432,6 +441,7 @@ export class AdminService {
       id: user.id,
       name: user.name,
       email: user.email,
+      phoneNumber: user.phoneNumber ?? null,
       role: user.role as UserRole,
       isActive: user.isActive,
       createdAt: user.createdAt,
@@ -446,31 +456,36 @@ export class AdminService {
   ): Promise<UserRecord> {
     const { currentRole, updated } = await this.withActiveAdminLock(
       async (tx) => {
-      const lockedUser = await tx.user.findUnique({ where: { id: userId } });
-      if (!lockedUser) throw new NotFoundException('User not found');
-      const currentRole = lockedUser.role as UserRole;
-      if (currentRole === newRole) return { currentRole, updated: lockedUser };
-      if (
-        lockedUser.role === 'admin' &&
-        newRole === 'user' &&
-        lockedUser.isActive
-      ) {
-        await this.assertAnotherActiveAdmin(tx, userId, 'demote');
-      }
-      const updated = await tx.user.update({
-        where: { id: userId },
-        data: { role: newRole },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-      return { currentRole, updated };
+        const lockedUser = await tx.user.findUnique({
+          where: { id: userId },
+        });
+        if (!lockedUser) throw new NotFoundException('User not found');
+        const currentRole = lockedUser.role as UserRole;
+        if (currentRole === newRole) {
+          return { currentRole, updated: lockedUser };
+        }
+        if (
+          lockedUser.role === 'admin' &&
+          newRole === 'user' &&
+          lockedUser.isActive
+        ) {
+          await this.assertAnotherActiveAdmin(tx, userId, 'demote');
+        }
+        const updated = await tx.user.update({
+          where: { id: userId },
+          data: { role: newRole },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phoneNumber: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+        return { currentRole, updated };
       },
     );
 
@@ -486,6 +501,7 @@ export class AdminService {
       id: updated.id,
       name: updated.name,
       email: updated.email,
+      phoneNumber: updated.phoneNumber ?? null,
       role: updated.role as UserRole,
       isActive: updated.isActive,
       createdAt: updated.createdAt,
@@ -799,10 +815,8 @@ export class AdminService {
     existingLat: number | null,
     existingLng: number | null,
   ): void {
-    const nextLat =
-      incomingLat === undefined ? existingLat : (incomingLat as number | null);
-    const nextLng =
-      incomingLng === undefined ? existingLng : (incomingLng as number | null);
+    const nextLat = incomingLat === undefined ? existingLat : incomingLat;
+    const nextLng = incomingLng === undefined ? existingLng : incomingLng;
     if ((nextLat === null) !== (nextLng === null)) {
       throw new BadRequestException(
         'latitude and longitude must be provided together (set both or clear both)',

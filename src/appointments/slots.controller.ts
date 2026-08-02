@@ -23,8 +23,8 @@ export class SlotsController {
    * US1 — Patient-facing slot picker.
    * Anonymous (no auth). Returns AVAILABLE slots for an ACTIVE
    * doctor in an ACTIVE category, sorted ascending by start time.
-    * Slots are time-sensitive, so responses must not be cached past a
-    * slot's start time.
+   * Slots are time-sensitive, so responses must not be cached past a
+   * slot's start time.
    */
   @Get(':doctorId/slots')
   @AllowAnonymous()

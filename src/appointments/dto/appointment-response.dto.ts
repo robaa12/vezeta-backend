@@ -9,6 +9,12 @@ export interface PublicDoctorRef {
   id: string;
   name: string;
   category: PublicCategoryRef;
+  imageUrl?: string | null;
+}
+
+export interface PublicPatientRef {
+  id: string;
+  name: string;
 }
 
 export interface PublicPatientRef {

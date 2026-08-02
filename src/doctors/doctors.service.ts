@@ -68,6 +68,12 @@ interface DoctorRatingAggregate {
   reviewCount: number;
 }
 
+interface DoctorRatingRow {
+  doctorId: string;
+  _avg: { rating: number | null };
+  _count: { _all: number };
+}
+
 @Injectable()
 export class DoctorsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -96,6 +102,7 @@ export class DoctorsService {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' } },
         { category: { name: { contains: query.search, mode: 'insensitive' } } },
+        { address: { contains: query.search, mode: 'insensitive' } },
       ];
     }
 
@@ -133,8 +140,9 @@ export class DoctorsService {
       totalPromise,
       ratingsPromise,
     ]);
+    const typedRatingRows = ratingRows as DoctorRatingRow[];
     const ratingsByDoctor = new Map<string, DoctorRatingAggregate>(
-      ratingRows.map((row): [string, DoctorRatingAggregate] => [
+      typedRatingRows.map((row): [string, DoctorRatingAggregate] => [
         row.doctorId,
         {
           averageRating: row._avg.rating,

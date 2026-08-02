@@ -446,7 +446,8 @@
                             "properties": {
                               "address": {
                                 "type": "string",
-                                "nullable": true
+                                "nullable": true,
+                                "description": "Public clinic address entered by an admin."
                               },
                               "latitude": {
                                 "type": "number",
@@ -464,7 +465,7 @@
                                 "type": "string",
                                 "nullable": true,
                                 "format": "uri",
-                                "description": "Google Maps link for the clinic location."
+                                "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                               }
                             },
                             "required": [
@@ -576,22 +577,23 @@
                   },
                   "address": {
                     "type": "string",
+                    "minLength": 1,
                     "maxLength": 500,
-                    "description": "Clinic address. For a Google Maps picker, submit its formatted address with latitude and longitude.",
+                    "description": "Required public clinic address. Provide latitude and longitude to create an exact Google Maps pin.",
                     "example": "15 Tahrir Square, Cairo, Egypt"
                   },
                   "latitude": {
                     "type": "number",
                     "minimum": -90,
                     "maximum": 90,
-                    "description": "Google Maps picker latitude or manually entered coordinate.",
+                    "description": "Clinic latitude. Must be paired with longitude.",
                     "example": 30.0444
                   },
                   "longitude": {
                     "type": "number",
                     "minimum": -180,
                     "maximum": 180,
-                    "description": "Google Maps picker longitude or manually entered coordinate.",
+                    "description": "Clinic longitude. Must be paired with latitude.",
                     "example": 31.2357
                   },
                   "image": {
@@ -602,7 +604,8 @@
                 },
                 "required": [
                   "name",
-                  "categoryId"
+                  "categoryId",
+                  "address"
                 ]
               }
             }
@@ -659,7 +662,8 @@
                           "properties": {
                             "address": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Public clinic address entered by an admin."
                             },
                             "latitude": {
                               "type": "number",
@@ -677,7 +681,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link for the clinic location."
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -820,7 +824,8 @@
                           "properties": {
                             "address": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Public clinic address entered by an admin."
                             },
                             "latitude": {
                               "type": "number",
@@ -838,7 +843,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link for the clinic location."
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -952,22 +957,23 @@
                   },
                   "address": {
                     "type": "string",
+                    "minLength": 1,
                     "maxLength": 500,
-                    "description": "Clinic address. Submit an empty string to clear it."
+                    "description": "New public clinic address. When provided, it cannot be empty."
                   },
                   "latitude": {
                     "type": "number",
                     "nullable": true,
                     "minimum": -90,
                     "maximum": 90,
-                    "description": "Google Maps picker latitude. Pass null with longitude to clear both."
+                    "description": "Clinic latitude. Send both coordinates or clear both."
                   },
                   "longitude": {
                     "type": "number",
                     "nullable": true,
                     "minimum": -180,
                     "maximum": 180,
-                    "description": "Google Maps picker longitude. Pass null with latitude to clear both."
+                    "description": "Clinic longitude. Send both coordinates or clear both."
                   },
                   "status": {
                     "type": "string",
@@ -1037,7 +1043,8 @@
                           "properties": {
                             "address": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Public clinic address entered by an admin."
                             },
                             "latitude": {
                               "type": "number",
@@ -1055,7 +1062,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link for the clinic location."
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -1238,7 +1245,8 @@
                           "properties": {
                             "address": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Public clinic address entered by an admin."
                             },
                             "latitude": {
                               "type": "number",
@@ -1256,7 +1264,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link for the clinic location."
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -1402,7 +1410,8 @@
                           "properties": {
                             "address": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Public clinic address entered by an admin."
                             },
                             "latitude": {
                               "type": "number",
@@ -1420,7 +1429,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link for the clinic location."
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -1666,7 +1675,7 @@
     },
     "/api/admin/users": {
       "get": {
-        "description": "Paginated list of all users. Filterable by role, isActive status, and search (name/email).",
+        "description": "Paginated list of all users. Filterable by role, isActive status, and search (name/email/phone).",
         "operationId": "AdminController_listUsers",
         "parameters": [
           {
@@ -1695,7 +1704,7 @@
             "name": "search",
             "required": false,
             "in": "query",
-            "description": "Search by name or email",
+            "description": "Search by name, email, or phone number",
             "schema": {
               "type": "string"
             }
@@ -1732,7 +1741,52 @@
                     "users": {
                       "type": "array",
                       "items": {
-                        "type": "object"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "phoneNumber": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "The phone number supplied by the user, or null if absent."
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "user",
+                              "admin"
+                            ]
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "email",
+                          "phoneNumber",
+                          "role",
+                          "isActive",
+                          "createdAt",
+                          "updatedAt"
+                        ]
                       }
                     },
                     "total": {
@@ -2541,6 +2595,36 @@
         ]
       }
     },
+    "/api/appointments/{id}": {
+      "get": {
+        "operationId": "AppointmentsController_getMine",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment details."
+          },
+          "401": {
+            "description": "No active session."
+          },
+          "404": {
+            "description": "Appointment does not exist or belongs to a different patient."
+          }
+        },
+        "summary": "Get one of my appointments (patient)",
+        "tags": [
+          "appointments"
+        ]
+      }
+    },
     "/api/appointments/{id}/cancel": {
       "patch": {
         "operationId": "AppointmentsController_cancelMine",
@@ -2579,7 +2663,7 @@
     },
     "/api/doctors": {
       "get": {
-        "description": "Anonymous-accessible listing of doctors. Optional filters: categoryId (FK equality, requires the category to be ACTIVE) and search (case-insensitive substring on name + category.name). Pagination via page (default 1) and pageSize (default 20, max 100).",
+        "description": "Anonymous-accessible listing of doctors. Optional filters: categoryId (FK equality, requires the category to be ACTIVE) and search (case-insensitive substring on doctor name, category name, or clinic address). Pagination via page (default 1) and pageSize (default 20, max 100).",
         "operationId": "DoctorsController_listDoctors",
         "parameters": [
           {
@@ -2597,10 +2681,10 @@
             "name": "search",
             "required": false,
             "in": "query",
-            "description": "Case-insensitive substring match on doctor name OR category name.",
+            "description": "Case-insensitive substring match on doctor name, category name, or clinic address.",
             "schema": {
               "maxLength": 120,
-              "example": "Smith",
+              "example": "Nasr City",
               "type": "string"
             }
           },
@@ -2666,7 +2750,7 @@
                           },
                           "location": {
                             "type": "object",
-                            "description": "Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.",
+                             "description": "Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.",
                             "properties": {
                               "address": {
                                 "type": "string",
@@ -2687,7 +2771,8 @@
                               "googleMapsUrl": {
                                 "type": "string",
                                 "nullable": true,
-                                "format": "uri"
+                                "format": "uri",
+                                "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                               }
                             },
                             "required": [
@@ -2810,7 +2895,7 @@
                         },
                         "location": {
                           "type": "object",
-                          "description": "Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.",
+                           "description": "Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -2831,7 +2916,8 @@
                             "googleMapsUrl": {
                               "type": "string",
                               "nullable": true,
-                              "format": "uri"
+                              "format": "uri",
+                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
                             }
                           },
                           "required": [
@@ -4594,7 +4680,7 @@
     "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, navigate the browser to `GET /api/oauth/google?callbackURL=/dashboard` (or `facebook`). The state cookie is set on the 302 response, so the callback succeeds without a cookie race condition. Use it as a direct link: `<a href=\"/api/oauth/google?callbackURL=/dashboard\">Sign in with Google</a>`.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `doctor-services` — per-doctor service catalog (admin)\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
     "version": "0.0.1",
     "contact": {},
-    "x-generated-at": "2026-08-02T14:40:15.367Z"
+    "x-generated-at": "2026-08-02T19:13:13.533Z"
   },
   "tags": [
     {
@@ -4898,14 +4984,16 @@
             "description": "Service price (no currency). Required when pricingMode is FIXED and omitted for ON_REQUEST services. Must be non-negative and at most 99999999.99.",
             "example": 150,
             "minimum": 0,
-            "maximum": 99999999.99
+            "maximum": 99999999.99,
+            "nullable": true
           },
           "discountPercent": {
             "type": "number",
             "description": "Discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price; the clinic confirms the final price.",
             "example": 10,
             "minimum": 0,
-            "maximum": 100
+            "maximum": 100,
+            "nullable": true
           },
           "pricingMode": {
             "type": "string",
@@ -4949,7 +5037,8 @@
             "type": "number",
             "description": "New discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price.",
             "minimum": 0,
-            "maximum": 100
+            "maximum": 100,
+            "nullable": true
           },
           "pricingMode": {
             "type": "string",

@@ -10,7 +10,6 @@ import {
   MaxLength,
   Min,
   MinLength,
-  ValidateIf,
 } from 'class-validator';
 
 export class CreateDoctorServiceDto {
@@ -35,12 +34,13 @@ export class CreateDoctorServiceDto {
     example: 150.0,
     minimum: 0,
     maximum: 99999999.99,
+    nullable: true,
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(99_999_999.99)
-  price?: number;
+  price?: number | null;
 
   @ApiPropertyOptional({
     description:
@@ -48,12 +48,13 @@ export class CreateDoctorServiceDto {
     example: 10,
     minimum: 0,
     maximum: 100,
+    nullable: true,
   })
-  @ValidateIf((o: CreateDoctorServiceDto) => o.discountPercent !== undefined)
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(100)
-  discountPercent?: number;
+  discountPercent?: number | null;
 
   @ApiPropertyOptional({
     description:
