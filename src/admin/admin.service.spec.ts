@@ -38,6 +38,7 @@ const mockPrisma = () => {
     medicalRecord: { count: jest.fn() },
     notification: { groupBy: jest.fn() },
     session: { deleteMany: jest.fn() },
+    $executeRaw: jest.fn(),
     $transaction: jest.fn(),
   };
 };
@@ -48,6 +49,9 @@ describe('AdminService — changeUserRole', () => {
 
   beforeEach(async () => {
     prisma = mockPrisma();
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma),
+    );
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
@@ -183,10 +187,7 @@ describe('AdminService — deactivateUser last-admin guard', () => {
 
   beforeEach(async () => {
     prisma = mockPrisma();
-    txMock = {
-      user: { update: jest.fn() },
-      session: { deleteMany: jest.fn() },
-    };
+    txMock = prisma;
     prisma.$transaction.mockImplementation(
       async (fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock),
     );
@@ -217,7 +218,7 @@ describe('AdminService — deactivateUser last-admin guard', () => {
     await expect(service.deactivateUser('u1', 'admin1')).rejects.toThrow(
       ConflictException,
     );
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it('allows deactivation of an active admin when other active admins exist', async () => {

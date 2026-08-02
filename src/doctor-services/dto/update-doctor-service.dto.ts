@@ -30,7 +30,9 @@ export class UpdateDoctorServiceDto {
 
   @ApiPropertyOptional({
     description:
-      'New service price (no currency). Omit to clear; supply a number to set. Must be non-negative and at most 99999999.99.',
+      'New service price (no currency). ON_REQUEST services must not have a price. Must be non-negative and at most 99999999.99.',
+    type: Number,
+    nullable: true,
     minimum: 0,
     maximum: 99999999.99,
   })
@@ -38,11 +40,11 @@ export class UpdateDoctorServiceDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(99_999_999.99)
-  price?: number;
+  price?: number | null;
 
   @ApiPropertyOptional({
     description:
-      'New discount as a percentage 0-100. Omit to clear; supply a number to set. Requires a price to be set either in this PATCH body or already on the service (enforced in the service layer).',
+      'New discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price.',
     minimum: 0,
     maximum: 100,
   })
@@ -51,6 +53,15 @@ export class UpdateDoctorServiceDto {
   @Min(0)
   @Max(100)
   discountPercent?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'FIXED exposes a known service price. ON_REQUEST means the clinic confirms the price and does not allow a stored price.',
+    enum: ['FIXED', 'ON_REQUEST'],
+  })
+  @IsOptional()
+  @IsIn(['FIXED', 'ON_REQUEST'])
+  pricingMode?: 'FIXED' | 'ON_REQUEST';
 
   @ApiPropertyOptional({
     description: 'New lifecycle status.',

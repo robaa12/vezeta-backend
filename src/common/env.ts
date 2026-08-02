@@ -29,9 +29,6 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional().default(1025),
   SMTP_SECURE: z.enum(['true', 'false']).optional().default('false'),
 
-  SMS_PROVIDER_API_KEY: z.string().optional().default(''),
-  SMS_PROVIDER_SENDER_ID: z.string().optional().default('Vezeeta'),
-
   GOOGLE_CLIENT_ID: z.string().optional().default(''),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
   FACEBOOK_CLIENT_ID: z.string().optional().default(''),

@@ -16,6 +16,9 @@ export class EnqueueInput {
   @ApiPropertyOptional({ type: 'object', additionalProperties: true })
   metadata?: Record<string, unknown>;
 
+  /** Internal key used to atomically claim at-most-once notifications. */
+  idempotencyKey?: string;
+
   @ApiPropertyOptional({ default: true })
   dispatch?: boolean;
 }

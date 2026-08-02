@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -13,7 +14,7 @@ import { CreateDoctorDto } from './dto/create-doctor.dto.js';
 import { ListDoctorsDto } from './dto/list-doctors.dto.js';
 import { UpdateDoctorDto } from './dto/update-doctor.dto.js';
 import { ListUsersDto } from './dto/list-users.dto.js';
-import { filePathToUrl } from '../upload/multer.config.js';
+import { saveDoctorImage } from '../upload/multer.config.js';
 import { buildGoogleMapsUrl } from '../doctors/doctor-location.js';
 
 export interface DoctorCategoryRef {
@@ -25,6 +26,7 @@ export interface DoctorServiceRef {
   id: string;
   name: string;
   price: number | null;
+  pricingMode: 'FIXED' | 'ON_REQUEST';
   discountPercent: number | null;
   finalPrice: number | null;
   status: 'ACTIVE' | 'DEACTIVATED';
@@ -89,21 +91,26 @@ export class AdminService {
     }
     this.assertCoordinatesConsistent(dto.latitude, dto.longitude);
 
-    const imageUrl = image ? filePathToUrl(image.path) : null;
-
-    const created = await this.prisma.doctor.create({
-      data: {
-        name: dto.name,
-        categoryId: dto.categoryId,
-        bio: dto.bio ?? null,
-        imageUrl,
-        address: this.normalizeAddress(dto.address) ?? null,
-        latitude: dto.latitude ?? null,
-        longitude: dto.longitude ?? null,
-        status: 'ACTIVE',
-      },
-      include: { category: { select: { id: true, name: true } } },
-    });
+    const imageUrl = image ? await saveDoctorImage(image) : null;
+    let created;
+    try {
+      created = await this.prisma.doctor.create({
+        data: {
+          name: dto.name,
+          categoryId: dto.categoryId,
+          bio: dto.bio ?? null,
+          imageUrl,
+          address: this.normalizeAddress(dto.address) ?? null,
+          latitude: dto.latitude ?? null,
+          longitude: dto.longitude ?? null,
+          status: 'ACTIVE',
+        },
+        include: { category: { select: { id: true, name: true } } },
+      });
+    } catch (error) {
+      if (imageUrl) await this.deleteOldImageFile(imageUrl);
+      throw error;
+    }
 
     void this.audit.record({
       actorId,
@@ -218,18 +225,23 @@ export class AdminService {
       data.longitude = dto.longitude;
     }
 
-    if (image) {
-      data.imageUrl = filePathToUrl(image.path);
-    }
+    const newImageUrl = image ? await saveDoctorImage(image) : null;
+    if (newImageUrl) data.imageUrl = newImageUrl;
 
     if (Object.keys(data).length === 0) {
       throw new ConflictException('No fields to update');
     }
-    const updated = await this.prisma.doctor.update({
-      where: { id },
-      data,
-      include: { category: { select: { id: true, name: true } } },
-    });
+    let updated;
+    try {
+      updated = await this.prisma.doctor.update({
+        where: { id },
+        data,
+        include: { category: { select: { id: true, name: true } } },
+      });
+    } catch (error) {
+      if (newImageUrl) await this.deleteOldImageFile(newImageUrl);
+      throw error;
+    }
 
     if (image && existing.imageUrl) {
       void this.deleteOldImageFile(existing.imageUrl).catch(() => {});
@@ -432,54 +444,35 @@ export class AdminService {
     newRole: UserRole,
     adminId: string,
   ): Promise<UserRecord> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    const currentRole = user.role as UserRole;
-
-    if (currentRole === newRole) {
-      return {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role as UserRole,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      };
-    }
-
-    // Last-admin guard: only applies when demoting an active admin.
-    if (currentRole === 'admin' && newRole === 'user' && user.isActive) {
-      const remainingActiveAdmins = await this.prisma.user.count({
-        where: {
-          role: 'admin',
+    const { currentRole, updated } = await this.withActiveAdminLock(
+      async (tx) => {
+      const lockedUser = await tx.user.findUnique({ where: { id: userId } });
+      if (!lockedUser) throw new NotFoundException('User not found');
+      const currentRole = lockedUser.role as UserRole;
+      if (currentRole === newRole) return { currentRole, updated: lockedUser };
+      if (
+        lockedUser.role === 'admin' &&
+        newRole === 'user' &&
+        lockedUser.isActive
+      ) {
+        await this.assertAnotherActiveAdmin(tx, userId, 'demote');
+      }
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: { role: newRole },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
           isActive: true,
-          NOT: { id: userId },
+          createdAt: true,
+          updatedAt: true,
         },
       });
-      if (remainingActiveAdmins === 0) {
-        throw new ConflictException({
-          message: 'Cannot demote the last active admin',
-          error: 'last_admin',
-        });
-      }
-    }
-
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { role: newRole },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
+      return { currentRole, updated };
       },
-    });
+    );
 
     void this.audit.record({
       actorId: adminId,
@@ -504,35 +497,17 @@ export class AdminService {
     userId: string,
     actorId: string,
   ): Promise<{ id: string; isActive: boolean; name: string; email: string }> {
-    const existing = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, role: true, isActive: true },
-    });
-    if (!existing) {
-      throw new NotFoundException('User not found');
-    }
-    // Last-admin guard: only applies when deactivating an active admin.
-    // Mirrors the same guard in changeUserRole so the system can never
-    // reach a state with zero active admins.
-    if (existing.role === 'admin' && existing.isActive) {
-      const remainingActiveAdmins = await this.prisma.user.count({
-        where: {
-          role: 'admin',
-          isActive: true,
-          NOT: { id: userId },
-        },
+    // Atomic: acquire the same transaction-scoped lock as role changes,
+    // check the invariant, update, and invalidate sessions together.
+    const updated = await this.withActiveAdminLock(async (tx) => {
+      const lockedUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true, role: true, isActive: true },
       });
-      if (remainingActiveAdmins === 0) {
-        throw new ConflictException({
-          message: 'Cannot deactivate the last active admin',
-          error: 'last_admin',
-        });
+      if (!lockedUser) throw new NotFoundException('User not found');
+      if (lockedUser.role === 'admin' && lockedUser.isActive) {
+        await this.assertAnotherActiveAdmin(tx, userId, 'deactivate');
       }
-    }
-    // Atomic: update + invalidate all sessions in one transaction so a
-    // race with a concurrent role change / re-activation cannot leave
-    // the user flagged inactive but with live sessions.
-    const updated = await this.prisma.$transaction(async (tx) => {
       const u = await tx.user.update({
         where: { id: userId },
         data: { isActive: false },
@@ -668,6 +643,36 @@ export class AdminService {
     return out;
   }
 
+  private async withActiveAdminLock<T>(
+    operation: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        // PostgreSQL advisory locks serialize every operation that could
+        // remove an active admin without blocking unrelated user updates.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('vezeta-active-admin-invariant'))`;
+        return operation(tx);
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  }
+
+  private async assertAnotherActiveAdmin(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    action: 'demote' | 'deactivate',
+  ): Promise<void> {
+    const remainingActiveAdmins = await tx.user.count({
+      where: { role: 'admin', isActive: true, NOT: { id: userId } },
+    });
+    if (remainingActiveAdmins === 0) {
+      throw new ConflictException({
+        message: `Cannot ${action} the last active admin`,
+        error: 'last_admin',
+      });
+    }
+  }
+
   // ---------------- Helpers ----------------
 
   private async deleteOldImageFile(imageUrl: string): Promise<void> {
@@ -697,6 +702,7 @@ export class AdminService {
       id: string;
       name: string;
       price: { toNumber(): number } | number | null;
+      pricingMode: string;
       discountPercent: number | null;
       status: string;
     }>;
@@ -724,6 +730,7 @@ export class AdminService {
           id: s.id,
           name: s.name,
           price,
+          pricingMode: s.pricingMode as DoctorServiceRef['pricingMode'],
           discountPercent: s.discountPercent,
           finalPrice: this.computeFinalPrice(price, s.discountPercent),
           status: s.status as DoctorServiceRef['status'],

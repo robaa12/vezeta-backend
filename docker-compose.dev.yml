@@ -2,6 +2,10 @@
 # user, and use the dev server (npm run start:dev). Use with:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+
   app:
     build:
       target: dev

@@ -12,6 +12,7 @@ export interface PublicDoctorServiceRef {
   id: string;
   name: string;
   price: number | null;
+  pricingMode: 'FIXED' | 'ON_REQUEST';
   discountPercent: number | null;
   finalPrice: number | null;
 }
@@ -218,6 +219,7 @@ export class DoctorsService {
       id: string;
       name: string;
       price: { toNumber(): number } | number | null;
+      pricingMode: string;
       discountPercent: number | null;
     }>;
   }): PublicDoctorRecord {
@@ -259,6 +261,7 @@ export class DoctorsService {
     id: string;
     name: string;
     price: { toNumber(): number } | number | null;
+    pricingMode: string;
     discountPercent: number | null;
   }): PublicDoctorServiceRef {
     const price =
@@ -271,6 +274,7 @@ export class DoctorsService {
       id: s.id,
       name: s.name,
       price,
+      pricingMode: s.pricingMode as PublicDoctorServiceRef['pricingMode'],
       discountPercent: s.discountPercent,
       finalPrice: this.computeFinalPrice(price, s.discountPercent),
     };

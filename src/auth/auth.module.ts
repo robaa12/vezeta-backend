@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
 import { EmailService } from '../common/email/email.service.js';
+import { rejectPhoneAuthRoutes } from './phone-auth-disabled.middleware.js';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { EmailService } from '../common/email/email.service.js';
       useFactory: (prisma: PrismaService, emailService: EmailService) => ({
         auth: createAuth(prisma, emailService),
         disableTrustedOriginsCors: true,
+        middleware: rejectPhoneAuthRoutes,
       }),
       inject: [PrismaService, EmailService],
       imports: [],

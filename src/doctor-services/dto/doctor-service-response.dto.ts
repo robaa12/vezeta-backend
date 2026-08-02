@@ -16,6 +16,13 @@ export class DoctorServiceResponseDto {
   })
   price!: number | null;
 
+  @ApiProperty({
+    description:
+      'FIXED for a known price, or ON_REQUEST when the clinic confirms the price directly.',
+    enum: ['FIXED', 'ON_REQUEST'],
+  })
+  pricingMode!: 'FIXED' | 'ON_REQUEST';
+
   @ApiPropertyOptional({
     description: 'Discount percentage 0-100. Null when no discount.',
     example: 10,
@@ -26,7 +33,7 @@ export class DoctorServiceResponseDto {
 
   @ApiPropertyOptional({
     description:
-      'Computed final price after discount. Null when no price is set. Equal to `price` when `discountPercent` is null or 0.',
+      'Computed final price after discount. Null when pricingMode is ON_REQUEST because the clinic confirms the price. Equal to `price` when `discountPercent` is null or 0.',
     example: 135.0,
   })
   finalPrice!: number | null;

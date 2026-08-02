@@ -47,6 +47,7 @@ import { Roles } from '../common/decorators/roles.decorator.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
 import { doctorImageMulterOpts } from '../upload/multer.config.js';
 import type { SessionUser } from '../common/interfaces/session.interface.js';
+import { MAX_DOCTOR_ADDRESS_LENGTH } from '../common/constants.js';
 
 // Shared response schema for the Doctor payload. Used by every doctor
 // endpoint so the generated OpenAPI surface documents `imageUrl` (and
@@ -77,6 +78,28 @@ const DOCTOR_RESPONSE_SCHEMA = {
         "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
       example: '/uploads/doctors/clx123abc.jpg',
     },
+    location: {
+      type: 'object',
+      description:
+        'Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.',
+      properties: {
+        address: { type: 'string', nullable: true },
+        latitude: { type: 'number', nullable: true, minimum: -90, maximum: 90 },
+        longitude: {
+          type: 'number',
+          nullable: true,
+          minimum: -180,
+          maximum: 180,
+        },
+        googleMapsUrl: {
+          type: 'string',
+          nullable: true,
+          format: 'uri',
+          description: 'Google Maps link for the clinic location.',
+        },
+      },
+      required: ['address', 'latitude', 'longitude', 'googleMapsUrl'],
+    },
     status: { type: 'string', enum: ['ACTIVE', 'DEACTIVATED'] },
     services: {
       type: 'array',
@@ -95,6 +118,7 @@ const DOCTOR_RESPONSE_SCHEMA = {
     'id',
     'name',
     'category',
+    'location',
     'status',
     'serviceCount',
     'createdAt',
@@ -143,6 +167,29 @@ const CREATE_DOCTOR_BODY_SCHEMA = {
       maxLength: 2000,
       description: 'Short biography / about section.',
     },
+    address: {
+      type: 'string',
+      maxLength: MAX_DOCTOR_ADDRESS_LENGTH,
+      description:
+        'Clinic address. For a Google Maps picker, submit its formatted address with latitude and longitude.',
+      example: '15 Tahrir Square, Cairo, Egypt',
+    },
+    latitude: {
+      type: 'number',
+      minimum: -90,
+      maximum: 90,
+      description:
+        'Google Maps picker latitude or manually entered coordinate.',
+      example: 30.0444,
+    },
+    longitude: {
+      type: 'number',
+      minimum: -180,
+      maximum: 180,
+      description:
+        'Google Maps picker longitude or manually entered coordinate.',
+      example: 31.2357,
+    },
     image: IMAGE_FIELD_SCHEMA,
   },
   required: ['name', 'categoryId'],
@@ -165,6 +212,27 @@ const UPDATE_DOCTOR_BODY_SCHEMA = {
     bio: {
       type: 'string',
       maxLength: 2000,
+    },
+    address: {
+      type: 'string',
+      maxLength: MAX_DOCTOR_ADDRESS_LENGTH,
+      description: 'Clinic address. Submit an empty string to clear it.',
+    },
+    latitude: {
+      type: 'number',
+      nullable: true,
+      minimum: -90,
+      maximum: 90,
+      description:
+        'Google Maps picker latitude. Pass null with longitude to clear both.',
+    },
+    longitude: {
+      type: 'number',
+      nullable: true,
+      minimum: -180,
+      maximum: 180,
+      description:
+        'Google Maps picker longitude. Pass null with latitude to clear both.',
     },
     status: {
       type: 'string',

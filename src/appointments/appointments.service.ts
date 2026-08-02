@@ -168,16 +168,32 @@ export class AppointmentsService {
       throw new NotFoundException('Slot not found');
     }
     // The DTO restricts status to 'AVAILABLE' | 'BLOCKED'. The 'BOOKED'
-    // state is owned by the booking lifecycle and cannot be set via
-    // this endpoint. No additional runtime check is needed.
+    // state is owned by the booking lifecycle and cannot be changed here.
+    if (existing.status === 'BOOKED') {
+      throw new ConflictException({
+        message: 'Cannot update a slot that is already booked',
+        error: 'slot_booked',
+      });
+    }
     const data: Record<string, unknown> = {};
     if (dto.status !== undefined) data.status = dto.status;
     if (Object.keys(data).length === 0) {
       throw new BadRequestException('No fields to update');
     }
-    const updated = await this.prisma.doctorSlot.update({
-      where: { id },
+    // Keep the transition conditional so a booking that wins after the
+    // pre-read cannot be overwritten by this administrative update.
+    const result = await this.prisma.doctorSlot.updateMany({
+      where: { id, status: { in: ['AVAILABLE', 'BLOCKED'] } },
       data,
+    });
+    if (result.count === 0) {
+      throw new ConflictException({
+        message: 'Slot is no longer editable',
+        error: 'slot_unavailable',
+      });
+    }
+    const updated = await this.prisma.doctorSlot.findUniqueOrThrow({
+      where: { id },
     });
     return this.toSlotResponse(updated);
   }
@@ -646,12 +662,10 @@ export class AppointmentsService {
   async completeAppointment(
     id: string,
   ): Promise<{ appointment: AppointmentResponseDto }> {
-    // Atomic state guard. The "scheduledAt in the past" check is done
-    // after the conditional updateMany because the comparison is
-    // wall-clock-based and a stale pre-read is harmless — if the
-    // update succeeds, scheduledAt was already in the past.
+    // Both lifecycle and time predicates belong to the same mutation. This
+    // avoids a compensating write that could overwrite a concurrent cancel.
     const result = await this.prisma.appointment.updateMany({
-      where: { id, status: 'CONFIRMED' },
+      where: { id, status: 'CONFIRMED', scheduledAt: { lte: new Date() } },
       data: { status: 'COMPLETED' },
     });
     if (result.count === 0) {
@@ -661,6 +675,12 @@ export class AppointmentsService {
       });
       if (!existing) {
         throw new NotFoundException('Appointment not found');
+      }
+      if (
+        existing.status === 'CONFIRMED' &&
+        existing.scheduledAt.getTime() > Date.now()
+      ) {
+        throw new BadRequestException('Cannot complete a future appointment');
       }
       throw new ConflictException({
         message: 'Only CONFIRMED appointments can be completed',
@@ -689,15 +709,6 @@ export class AppointmentsService {
         },
       },
     });
-    if (updated.scheduledAt.getTime() > Date.now()) {
-      // Undo the transition if scheduledAt is in the future. This can
-      // only happen in a tiny race between the read and the wall clock.
-      await this.prisma.appointment.update({
-        where: { id },
-        data: { status: 'CONFIRMED' },
-      });
-      throw new BadRequestException('Cannot complete a future appointment');
-    }
     this.emitAppointmentEvent(APPOINTMENT_COMPLETED, {
       appointmentId: updated.id,
       userId: updated.userId,

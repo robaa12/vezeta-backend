@@ -258,18 +258,21 @@ describe('DoctorsService — getPublicDoctor', () => {
           id: 's1',
           name: 'Consultation',
           price: { toNumber: () => 100 },
+          pricingMode: 'FIXED',
           discountPercent: 10,
         },
         {
           id: 's2',
           name: 'Follow-up',
           price: null,
+          pricingMode: 'ON_REQUEST',
           discountPercent: null,
         },
         {
           id: 's3',
           name: 'Free check',
           price: { toNumber: () => 0 },
+          pricingMode: 'FIXED',
           discountPercent: 0,
         },
       ],
@@ -280,6 +283,7 @@ describe('DoctorsService — getPublicDoctor', () => {
       id: 's1',
       name: 'Consultation',
       price: 100,
+      pricingMode: 'FIXED',
       discountPercent: 10,
       finalPrice: 90,
     });
@@ -287,6 +291,7 @@ describe('DoctorsService — getPublicDoctor', () => {
       id: 's2',
       name: 'Follow-up',
       price: null,
+      pricingMode: 'ON_REQUEST',
       discountPercent: null,
       finalPrice: null,
     });
@@ -294,6 +299,7 @@ describe('DoctorsService — getPublicDoctor', () => {
       id: 's3',
       name: 'Free check',
       price: 0,
+      pricingMode: 'FIXED',
       discountPercent: 0,
       finalPrice: 0,
     });

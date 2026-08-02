@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsIn,
   IsLatitude,
@@ -53,6 +54,7 @@ export class UpdateDoctorDto {
     nullable: true,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsLatitude()
   latitude?: number | null;
 
@@ -65,6 +67,7 @@ export class UpdateDoctorDto {
     nullable: true,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsLongitude()
   longitude?: number | null;
 

@@ -440,6 +440,40 @@
                             "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                             "example": "/uploads/doctors/clx123abc.jpg"
                           },
+                          "location": {
+                            "type": "object",
+                            "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
+                            "properties": {
+                              "address": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "latitude": {
+                                "type": "number",
+                                "nullable": true,
+                                "minimum": -90,
+                                "maximum": 90
+                              },
+                              "longitude": {
+                                "type": "number",
+                                "nullable": true,
+                                "minimum": -180,
+                                "maximum": 180
+                              },
+                              "googleMapsUrl": {
+                                "type": "string",
+                                "nullable": true,
+                                "format": "uri",
+                                "description": "Google Maps link for the clinic location."
+                              }
+                            },
+                            "required": [
+                              "address",
+                              "latitude",
+                              "longitude",
+                              "googleMapsUrl"
+                            ]
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -472,6 +506,7 @@
                           "id",
                           "name",
                           "category",
+                          "location",
                           "status",
                           "serviceCount",
                           "createdAt",
@@ -539,6 +574,26 @@
                     "maxLength": 2000,
                     "description": "Short biography / about section."
                   },
+                  "address": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": "Clinic address. For a Google Maps picker, submit its formatted address with latitude and longitude.",
+                    "example": "15 Tahrir Square, Cairo, Egypt"
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "Google Maps picker latitude or manually entered coordinate.",
+                    "example": 30.0444
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "Google Maps picker longitude or manually entered coordinate.",
+                    "example": 31.2357
+                  },
                   "image": {
                     "type": "string",
                     "format": "binary",
@@ -598,6 +653,40 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "format": "uri",
+                              "description": "Google Maps link for the clinic location."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -630,6 +719,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "serviceCount",
                         "createdAt",
@@ -724,6 +814,40 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "format": "uri",
+                              "description": "Google Maps link for the clinic location."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -756,6 +880,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "serviceCount",
                         "createdAt",
@@ -825,6 +950,25 @@
                     "type": "string",
                     "maxLength": 2000
                   },
+                  "address": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": "Clinic address. Submit an empty string to clear it."
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "Google Maps picker latitude. Pass null with longitude to clear both."
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "nullable": true,
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "Google Maps picker longitude. Pass null with latitude to clear both."
+                  },
                   "status": {
                     "type": "string",
                     "enum": [
@@ -887,6 +1031,40 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "format": "uri",
+                              "description": "Google Maps link for the clinic location."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -919,6 +1097,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "serviceCount",
                         "createdAt",
@@ -1053,6 +1232,40 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "format": "uri",
+                              "description": "Google Maps link for the clinic location."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -1085,6 +1298,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "serviceCount",
                         "createdAt",
@@ -1182,6 +1396,40 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "format": "uri",
+                              "description": "Google Maps link for the clinic location."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -1214,6 +1462,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "serviceCount",
                         "createdAt",
@@ -2415,6 +2664,39 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "location": {
+                            "type": "object",
+                            "description": "Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.",
+                            "properties": {
+                              "address": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "latitude": {
+                                "type": "number",
+                                "nullable": true,
+                                "minimum": -90,
+                                "maximum": 90
+                              },
+                              "longitude": {
+                                "type": "number",
+                                "nullable": true,
+                                "minimum": -180,
+                                "maximum": 180
+                              },
+                              "googleMapsUrl": {
+                                "type": "string",
+                                "nullable": true,
+                                "format": "uri"
+                              }
+                            },
+                            "required": [
+                              "address",
+                              "latitude",
+                              "longitude",
+                              "googleMapsUrl"
+                            ]
+                          },
                           "averageRating": {
                             "type": "number",
                             "nullable": true,
@@ -2438,6 +2720,7 @@
                           "name",
                           "category",
                           "imageUrl",
+                          "location",
                           "averageRating",
                           "reviewCount",
                           "status"
@@ -2525,6 +2808,39 @@
                           "description": "Relative path to the doctor's profile image, e.g. `/uploads/doctors/<uuid>.jpg`. Prepend the API base URL to display. `null` if no image has been uploaded.",
                           "example": "/uploads/doctors/clx123abc.jpg"
                         },
+                        "location": {
+                          "type": "object",
+                          "description": "Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.",
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -90,
+                              "maximum": 90
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true,
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            "googleMapsUrl": {
+                              "type": "string",
+                              "nullable": true,
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "latitude",
+                            "longitude",
+                            "googleMapsUrl"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -2551,6 +2867,7 @@
                         "id",
                         "name",
                         "category",
+                        "location",
                         "status",
                         "createdAt",
                         "updatedAt"
@@ -2999,7 +3316,7 @@
             "description": "Service created."
           },
           "400": {
-            "description": "Validation error (e.g. discount without price, or no fields)."
+            "description": "Validation error (e.g. a price on an ON_REQUEST service, or no fields)."
           },
           "401": {
             "description": "No active session."
@@ -3106,7 +3423,7 @@
             "description": "Service updated."
           },
           "400": {
-            "description": "No fields to update, or discount/price inconsistency."
+            "description": "No fields to update, or pricing mode/price inconsistency."
           },
           "401": {
             "description": "No active session."
@@ -4277,7 +4594,7 @@
     "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, navigate the browser to `GET /api/oauth/google?callbackURL=/dashboard` (or `facebook`). The state cookie is set on the 302 response, so the callback succeeds without a cookie race condition. Use it as a direct link: `<a href=\"/api/oauth/google?callbackURL=/dashboard\">Sign in with Google</a>`.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `doctor-services` — per-doctor service catalog (admin)\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
     "version": "0.0.1",
     "contact": {},
-    "x-generated-at": "2026-08-02T14:17:00.772Z"
+    "x-generated-at": "2026-08-02T14:40:15.367Z"
   },
   "tags": [
     {
@@ -4578,17 +4895,26 @@
           },
           "price": {
             "type": "number",
-            "description": "Service price (no currency). Omit for free / price-on-request services. Must be non-negative and at most 99999999.99.",
+            "description": "Service price (no currency). Required when pricingMode is FIXED and omitted for ON_REQUEST services. Must be non-negative and at most 99999999.99.",
             "example": 150,
             "minimum": 0,
             "maximum": 99999999.99
           },
           "discountPercent": {
             "type": "number",
-            "description": "Discount as a percentage 0-100. Only meaningful when a price is also set; rejected with 400 if supplied without a price.",
+            "description": "Discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price; the clinic confirms the final price.",
             "example": 10,
             "minimum": 0,
             "maximum": 100
+          },
+          "pricingMode": {
+            "type": "string",
+            "description": "FIXED exposes a known service price. ON_REQUEST means the clinic confirms the price; a discount percentage may still be advertised. Defaults to FIXED when price is supplied, otherwise ON_REQUEST.",
+            "enum": [
+              "FIXED",
+              "ON_REQUEST"
+            ],
+            "example": "ON_REQUEST"
           },
           "status": {
             "type": "string",
@@ -4614,15 +4940,24 @@
           },
           "price": {
             "type": "number",
-            "description": "New service price (no currency). Omit to clear; supply a number to set. Must be non-negative and at most 99999999.99.",
+            "description": "New service price (no currency). ON_REQUEST services must not have a price. Must be non-negative and at most 99999999.99.",
+            "nullable": true,
             "minimum": 0,
             "maximum": 99999999.99
           },
           "discountPercent": {
             "type": "number",
-            "description": "New discount as a percentage 0-100. Omit to clear; supply a number to set. Requires a price to be set either in this PATCH body or already on the service (enforced in the service layer).",
+            "description": "New discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price.",
             "minimum": 0,
             "maximum": 100
+          },
+          "pricingMode": {
+            "type": "string",
+            "description": "FIXED exposes a known service price. ON_REQUEST means the clinic confirms the price and does not allow a stored price.",
+            "enum": [
+              "FIXED",
+              "ON_REQUEST"
+            ]
           },
           "status": {
             "type": "string",

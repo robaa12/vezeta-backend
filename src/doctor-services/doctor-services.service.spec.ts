@@ -31,6 +31,7 @@ const baseService = {
   name: 'Consultation',
   price: new Prisma.Decimal('150.00'),
   discountPercent: 10,
+  pricingMode: 'FIXED',
   status: 'ACTIVE',
   createdAt: new Date('2026-07-22T10:00:00Z'),
   updatedAt: new Date('2026-07-22T10:00:00Z'),
@@ -86,6 +87,7 @@ describe('DoctorServicesService — listForDoctor', () => {
     const result = await service.listForDoctor('d1', {});
     expect(result.services[0]).toMatchObject({
       price: 150,
+      pricingMode: 'FIXED',
       discountPercent: 10,
       finalPrice: 135,
     });
@@ -114,12 +116,36 @@ describe('DoctorServicesService — createForDoctor', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('throws 400 when discount is supplied without a price', async () => {
+  it('creates an ON_REQUEST service with a discount but no price', async () => {
+    prisma.doctor.findUnique.mockResolvedValueOnce({ id: 'd1' });
+    prisma.doctorService.create.mockResolvedValueOnce({
+      ...baseService,
+      price: null,
+      discountPercent: 10,
+      pricingMode: 'ON_REQUEST',
+    });
+
+    const result = await service.createForDoctor('d1', {
+      name: 'Consultation',
+      discountPercent: 10,
+      pricingMode: 'ON_REQUEST',
+    });
+
+    expect(result).toMatchObject({
+      price: null,
+      pricingMode: 'ON_REQUEST',
+      discountPercent: 10,
+      finalPrice: null,
+    });
+  });
+
+  it('throws 400 when a FIXED service has a discount without a price', async () => {
     prisma.doctor.findUnique.mockResolvedValueOnce({ id: 'd1' });
     await expect(
       service.createForDoctor('d1', {
         name: 'Consultation',
         discountPercent: 10,
+        pricingMode: 'FIXED',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
@@ -130,10 +156,12 @@ describe('DoctorServicesService — createForDoctor', () => {
       ...baseService,
       price: null,
       discountPercent: null,
+      pricingMode: 'ON_REQUEST',
     });
     const result = await service.createForDoctor('d1', { name: 'Checkup' });
     expect(result.status).toBe('ACTIVE');
     expect(result.price).toBeNull();
+    expect(result.pricingMode).toBe('ON_REQUEST');
     expect(result.discountPercent).toBeNull();
     expect(result.finalPrice).toBeNull();
   });
@@ -198,25 +226,41 @@ describe('DoctorServicesService — updateForDoctor', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('throws 400 when adding a discount while the existing price is null', async () => {
+  it('allows adding a discount to an existing ON_REQUEST service', async () => {
     prisma.doctorService.findFirst.mockResolvedValueOnce({
       ...baseService,
       price: null,
       discountPercent: null,
+      pricingMode: 'ON_REQUEST',
     });
-    await expect(
-      service.updateForDoctor('d1', 's1', { discountPercent: 10 }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    prisma.doctorService.update.mockResolvedValueOnce({
+      ...baseService,
+      price: null,
+      discountPercent: 10,
+      pricingMode: 'ON_REQUEST',
+    });
+
+    const result = await service.updateForDoctor('d1', 's1', {
+      discountPercent: 10,
+    });
+
+    expect(result).toMatchObject({
+      price: null,
+      pricingMode: 'ON_REQUEST',
+      discountPercent: 10,
+      finalPrice: null,
+    });
   });
 
-  it('throws 400 when clearing the price while a discount is set', async () => {
+  it('requires a price to be cleared when switching to ON_REQUEST', async () => {
     prisma.doctorService.findFirst.mockResolvedValueOnce({
       ...baseService,
       price: new Prisma.Decimal('100.00'),
       discountPercent: 10,
+      pricingMode: 'FIXED',
     });
     await expect(
-      service.updateForDoctor('d1', 's1', { price: null }),
+      service.updateForDoctor('d1', 's1', { pricingMode: 'ON_REQUEST' }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

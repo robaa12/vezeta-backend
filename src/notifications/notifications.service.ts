@@ -28,12 +28,38 @@ export class NotificationsService {
    * inbound event listener stays silent on failure.
    */
   async enqueue(input: EnqueueInput): Promise<NotificationRecord> {
-    const channel: Channel = input.channel ?? 'EMAIL';
-    const shouldDispatch = input.dispatch !== false && channel === 'EMAIL';
-    let status: Status = 'QUEUED';
-    let sentAt: Date | null = null;
+    const created = await this.create(input);
+    return this.dispatch(created, input);
+  }
 
-    const created = await this.prisma.notification.create({
+  /**
+   * Atomically creates and claims an idempotent notification. A competing
+   * caller receives null and must not attempt delivery.
+   */
+  async enqueueIfAbsent(
+    input: EnqueueInput,
+  ): Promise<NotificationRecord | null> {
+    if (!input.idempotencyKey) {
+      throw new Error('idempotencyKey is required for enqueueIfAbsent');
+    }
+
+    try {
+      const created = await this.create(input);
+      return this.dispatch(created, input);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  private async create(input: EnqueueInput) {
+    const channel: Channel = input.channel ?? 'EMAIL';
+    return this.prisma.notification.create({
       data: {
         userId: input.userId,
         channel,
@@ -43,8 +69,19 @@ export class NotificationsService {
         metadata: input.metadata
           ? (input.metadata as Prisma.InputJsonValue)
           : Prisma.JsonNull,
+        idempotencyKey: input.idempotencyKey,
       },
     });
+  }
+
+  private async dispatch(
+    created: Awaited<ReturnType<NotificationsService['create']>>,
+    input: EnqueueInput,
+  ): Promise<NotificationRecord> {
+    const channel: Channel = input.channel ?? 'EMAIL';
+    const shouldDispatch = input.dispatch !== false && channel === 'EMAIL';
+    let status: Status = 'QUEUED';
+    let sentAt: Date | null = null;
 
     if (!shouldDispatch) {
       return this.toRecord(created);

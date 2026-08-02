@@ -338,7 +338,7 @@ Both endpoints send `Cache-Control: no-store` so clients do not show stale catal
 - `PATCH /api/admin/doctors/:doctorId/services/:serviceId/deactivate` — soft-deactivate
 - `DELETE /api/admin/doctors/:doctorId/services/:serviceId` — hard delete (204)
 
-Each service has a `finalPrice` (computed: price minus discount). `discountPercent` is only settable when `price` is present.
+Each service has a `pricingMode`: `FIXED` exposes a known price and its `finalPrice` is computed as price minus discount; `ON_REQUEST` means the clinic confirms the price directly. `ON_REQUEST` services may advertise `discountPercent` without a price, and their `finalPrice` is `null`.
 
 ### 10.4 `slots` — public slot picker
 
