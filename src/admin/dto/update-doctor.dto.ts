@@ -42,6 +42,24 @@ export class UpdateDoctorDto {
   @MaxLength(2000)
   bio?: string;
 
+  @ApiPropertyOptional({ maxLength: 100 })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
+  @ApiPropertyOptional({ maxLength: 160 })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MaxLength(160)
+  area?: string;
+
   @ApiPropertyOptional({
     description:
       'New clinic address. Pass an empty string to clear the address (and the doctor\'s Google Maps link, if no coordinates are set).',

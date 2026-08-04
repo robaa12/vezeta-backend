@@ -39,6 +39,25 @@ export class CreateDoctorDto {
   @IsString()
   @MaxLength(2000)
   bio?: string;
+
+  @ApiPropertyOptional({ description: 'Clinic city.', maxLength: 100 })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
+  @ApiPropertyOptional({ description: 'Clinic area or district.', maxLength: 160 })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  area?: string;
+
   @ApiPropertyOptional({
     description:
       'Clinic address. Coordinates take priority for Google Maps; otherwise the address is used as a search query.',

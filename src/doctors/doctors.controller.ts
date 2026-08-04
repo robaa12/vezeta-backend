@@ -31,6 +31,8 @@ const PUBLIC_DOCTOR_LOCATION_SCHEMA = {
   description:
     'Clinic location. googleMapsUrl is available only when an admin selected an exact Google Maps pin.',
   properties: {
+    city: { type: 'string', nullable: true },
+    area: { type: 'string', nullable: true },
     address: { type: 'string', nullable: true },
     latitude: { type: 'number', nullable: true, minimum: -90, maximum: 90 },
     longitude: {
@@ -47,7 +49,7 @@ const PUBLIC_DOCTOR_LOCATION_SCHEMA = {
         'Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null.',
     },
   },
-  required: ['address', 'latitude', 'longitude', 'googleMapsUrl'],
+  required: ['city', 'area', 'address', 'latitude', 'longitude', 'googleMapsUrl'],
 };
 
 const PUBLIC_DOCTOR_LIST_ITEM_SCHEMA = {

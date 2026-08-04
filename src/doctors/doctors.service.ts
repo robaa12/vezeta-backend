@@ -18,6 +18,8 @@ export interface PublicDoctorServiceRef {
 }
 
 export interface PublicDoctorLocation {
+  city: string | null;
+  area: string | null;
   address: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -98,10 +100,15 @@ export class DoctorsService {
     if (query.categoryId) {
       where.categoryId = query.categoryId;
     }
+    if (query.city) {
+      where.city = query.city;
+    }
     if (query.search !== undefined && query.search.length > 0) {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' } },
         { category: { name: { contains: query.search, mode: 'insensitive' } } },
+        { city: { contains: query.search, mode: 'insensitive' } },
+        { area: { contains: query.search, mode: 'insensitive' } },
         { address: { contains: query.search, mode: 'insensitive' } },
       ];
     }
@@ -115,6 +122,8 @@ export class DoctorsService {
         id: true,
         name: true,
         imageUrl: true,
+        city: true,
+        area: true,
         address: true,
         latitude: true,
         longitude: true,
@@ -188,6 +197,8 @@ export class DoctorsService {
       id: string;
       name: string;
       imageUrl: string | null;
+      city: string | null;
+      area: string | null;
       address: string | null;
       latitude: number | null;
       longitude: number | null;
@@ -216,6 +227,8 @@ export class DoctorsService {
     name: string;
     bio: string | null;
     imageUrl: string | null;
+    city: string | null;
+    area: string | null;
     address: string | null;
     latitude: number | null;
     longitude: number | null;
@@ -249,11 +262,15 @@ export class DoctorsService {
   }
 
   private toLocation(d: {
+    city: string | null;
+    area: string | null;
     address: string | null;
     latitude: number | null;
     longitude: number | null;
   }): PublicDoctorLocation {
     return {
+      city: d.city ?? null,
+      area: d.area ?? null,
       address: d.address ?? null,
       latitude: d.latitude ?? null,
       longitude: d.longitude ?? null,

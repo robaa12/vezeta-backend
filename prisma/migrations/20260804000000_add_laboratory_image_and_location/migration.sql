@@ -1,0 +1,4 @@
+ALTER TABLE "laboratory"
+ADD COLUMN "imageUrl" TEXT,
+ADD COLUMN "latitude" DOUBLE PRECISION,
+ADD COLUMN "longitude" DOUBLE PRECISION;

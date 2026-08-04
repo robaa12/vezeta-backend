@@ -31,6 +31,7 @@ model User {
   appointments   Appointment[]
   reviews        Review[]
   medicalRecords MedicalRecord[]
+  laboratoryMedicalRecords LaboratoryMedicalRecord[]
   notifications  Notification[]
   auditLogs      AuditLog[]
   laboratoryBookings LaboratoryBooking[]
@@ -131,6 +132,8 @@ model Doctor {
   categoryId String
   bio        String?
   imageUrl   String?
+  city       String?
+  area       String?
   address    String?
   latitude   Float?
   longitude  Float?
@@ -184,11 +187,17 @@ model Laboratory {
   city          String
   area          String
   address       String
+  imageUrl      String?
+  latitude      Float?
+  longitude     Float?
   phone         String
-  rating        Float
-  reviewCount   Int
+  rating        Float    @default(0)
+  reviewCount   Int      @default(0)
   accreditation String
   turnaround    String
+  workingDays   String[] @default(["SATURDAY", "SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY"])
+  opensAt       String   @default("10:00")
+  closesAt      String   @default("20:00")
   tone          String
   about         String
   facilities    String[]
@@ -199,23 +208,24 @@ model Laboratory {
   services LaboratoryService[]
   reviews  LaboratoryReview[]
   bookings LaboratoryBooking[]
+  medicalRecords LaboratoryMedicalRecord[]
 
   @@index([status, city])
   @@map("laboratory")
 }
 
 model LaboratoryService {
-  id           String   @id @default(cuid())
-  laboratoryId String
-  name         String
-  description  String
-  price        Decimal  @db.Decimal(10, 2)
-  turnaround   String
-  preparation  String
-  popular      Boolean  @default(false)
-  status       String   @default("ACTIVE")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  laboratoryId    String
+  name            String
+  description     String
+  price           Decimal? @db.Decimal(10, 2)
+  discountPercent Int?
+  turnaround      String
+  preparation     String
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   laboratory Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
   bookings   LaboratoryBooking[]
@@ -225,15 +235,17 @@ model LaboratoryService {
 }
 
 model LaboratoryReview {
-  id           String     @id @default(cuid())
-  laboratoryId String
-  authorName   String
-  rating       Int
-  comment      String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                  String             @id @default(cuid())
+  laboratoryId        String
+  laboratoryBookingId String?            @unique
+  authorName          String
+  rating              Int
+  comment             String
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
-  laboratory Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+  laboratory Laboratory        @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+  booking    LaboratoryBooking? @relation(fields: [laboratoryBookingId], references: [id], onDelete: Cascade)
 
   @@index([laboratoryId, createdAt])
   @@map("laboratory_review")
@@ -254,11 +266,35 @@ model LaboratoryBooking {
   user       User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   laboratory Laboratory        @relation(fields: [laboratoryId], references: [id], onDelete: Restrict)
   service    LaboratoryService @relation(fields: [laboratoryServiceId], references: [id], onDelete: Restrict)
+  review     LaboratoryReview?
+  medicalRecord LaboratoryMedicalRecord?
 
   @@unique([laboratoryId, reservationDate, queueNumber])
   @@index([userId, reservationDate])
   @@index([laboratoryId, reservationDate])
   @@map("laboratory_booking")
+}
+
+// A laboratory result is kept separately from a doctor appointment record.
+// The patient and the originating laboratory are denormalised so access
+// checks do not need to traverse the booking on every read.
+model LaboratoryMedicalRecord {
+  id                  String            @id @default(cuid())
+  laboratoryBookingId String            @unique
+  laboratoryBooking   LaboratoryBooking @relation(fields: [laboratoryBookingId], references: [id], onDelete: Cascade)
+  patientId           String
+  patient             User              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  laboratoryId        String
+  laboratory          Laboratory        @relation(fields: [laboratoryId], references: [id], onDelete: Restrict)
+  notes               String?
+  attachmentUrls      String[]
+  createdById         String
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([patientId])
+  @@index([laboratoryId])
+  @@map("laboratory_medical_record")
 }
 
 // DoctorSlot is a bookable time window attached to a doctor

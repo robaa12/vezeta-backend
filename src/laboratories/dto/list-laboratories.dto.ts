@@ -1,5 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class ListLaboratoriesDto {
   @IsOptional()
@@ -11,6 +19,10 @@ export class ListLaboratoriesDto {
   @IsString()
   @MaxLength(100)
   city?: string;
+
+  @IsOptional()
+  @IsIn(['ACTIVE', 'DEACTIVATED'])
+  status?: 'ACTIVE' | 'DEACTIVATED';
 
   @IsOptional()
   @Type(() => Number)

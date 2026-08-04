@@ -33,6 +33,8 @@ export interface DoctorServiceRef {
 }
 
 export interface DoctorLocation {
+  city: string | null;
+  area: string | null;
   address: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -105,6 +107,8 @@ export class AdminService {
           categoryId: dto.categoryId,
           bio: dto.bio ?? null,
           imageUrl,
+          city: this.normalizeAddress(dto.city) ?? null,
+          area: this.normalizeAddress(dto.area) ?? null,
           address: this.normalizeAddress(dto.address) ?? null,
           latitude: dto.latitude ?? null,
           longitude: dto.longitude ?? null,
@@ -220,6 +224,8 @@ export class AdminService {
     if (dto.categoryId !== undefined) data.categoryId = dto.categoryId;
     if (dto.bio !== undefined) data.bio = dto.bio;
     if (dto.status !== undefined) data.status = dto.status;
+    if (dto.city !== undefined) data.city = this.normalizeAddress(dto.city) ?? null;
+    if (dto.area !== undefined) data.area = this.normalizeAddress(dto.area) ?? null;
     if (dto.address !== undefined) {
       data.address = this.normalizeAddress(dto.address) ?? null;
     }
@@ -592,6 +598,8 @@ export class AdminService {
       usersByRole,
       doctorsTotal,
       doctorsByStatus,
+      laboratoriesTotal,
+      laboratoriesByStatus,
       categoriesTotal,
       categoriesByStatus,
       appointmentsByStatus,
@@ -604,6 +612,11 @@ export class AdminService {
       this.prisma.user.groupBy({ by: ['role'], _count: { _all: true } }),
       this.prisma.doctor.count(),
       this.prisma.doctor.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.laboratory.count(),
+      this.prisma.laboratory.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
       this.prisma.category.count(),
       this.prisma.category.groupBy({
         by: ['status'],
@@ -630,6 +643,10 @@ export class AdminService {
       doctors: {
         total: doctorsTotal,
         byStatus: this.toRecord(doctorsByStatus, 'status'),
+      },
+      laboratories: {
+        total: laboratoriesTotal,
+        byStatus: this.toRecord(laboratoriesByStatus, 'status'),
       },
       categories: {
         total: categoriesTotal,
@@ -707,6 +724,8 @@ export class AdminService {
     name: string;
     bio: string | null;
     imageUrl: string | null;
+    city?: string | null;
+    area?: string | null;
     address?: string | null;
     latitude?: number | null;
     longitude?: number | null;
@@ -759,6 +778,8 @@ export class AdminService {
   }
 
   private toLocation(d: {
+    city?: string | null;
+    area?: string | null;
     address?: string | null;
     latitude?: number | null;
     longitude?: number | null;
@@ -767,6 +788,8 @@ export class AdminService {
     const latitude = d.latitude ?? null;
     const longitude = d.longitude ?? null;
     return {
+      city: d.city ?? null,
+      area: d.area ?? null,
       address,
       latitude,
       longitude,
@@ -838,6 +861,7 @@ export class AdminService {
 export interface AdminStats {
   users: { total: number; active: number; byRole: Record<string, number> };
   doctors: { total: number; byStatus: Record<string, number> };
+  laboratories: { total: number; byStatus: Record<string, number> };
   categories: { total: number; byStatus: Record<string, number> };
   appointments: { byStatus: Record<string, number> };
   reviews: { total: number };

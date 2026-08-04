@@ -127,10 +127,15 @@ async function bootstrap(): Promise<void> {
 
   const port = Number(process.env.PORT ?? 3000);
 
-  // Ensure the uploads directory exists for multer disk storage.
-  const uploadsDir = join(process.cwd(), 'uploads', 'doctors');
-  if (!existsSync(uploadsDir)) {
-    mkdirSync(uploadsDir, { recursive: true });
+  // Ensure image upload directories exist before an admin saves a profile.
+  for (const uploadsDir of [
+    join(process.cwd(), 'uploads', 'doctors'),
+    join(process.cwd(), 'uploads', 'laboratories'),
+    join(process.cwd(), 'uploads', 'laboratory-records'),
+  ]) {
+    if (!existsSync(uploadsDir)) {
+      mkdirSync(uploadsDir, { recursive: true });
+    }
   }
 
   // Serve uploaded files under /uploads/ so clients can fetch

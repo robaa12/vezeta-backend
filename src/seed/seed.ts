@@ -111,7 +111,14 @@ async function main(): Promise<void> {
     logger.log(`Default categories ensured: ${defaultCategories.join(', ')}`);
 
     for (const laboratory of laboratorySeedData) {
-      const { services, reviews, facilities, ...laboratoryFields } = laboratory;
+      const {
+        services,
+        reviews,
+        facilities,
+        rating: _rating,
+        reviewCount: _reviewCount,
+        ...laboratoryFields
+      } = laboratory;
       const data = { ...laboratoryFields, facilities: [...facilities] };
       await prisma.laboratory.upsert({
         where: { id: laboratory.id },
@@ -125,7 +132,6 @@ async function main(): Promise<void> {
         price,
         turnaround,
         preparation,
-        popular,
       ] of services) {
         await prisma.laboratoryService.upsert({
           where: { id },
@@ -135,7 +141,6 @@ async function main(): Promise<void> {
             price,
             turnaround,
             preparation,
-            popular: popular ?? false,
             status: 'ACTIVE',
           },
           create: {
@@ -146,7 +151,6 @@ async function main(): Promise<void> {
             price,
             turnaround,
             preparation,
-            popular: popular ?? false,
           },
         });
       }
@@ -169,6 +173,18 @@ async function main(): Promise<void> {
           },
         });
       }
+      const aggregate = await prisma.laboratoryReview.aggregate({
+        where: { laboratoryId: laboratory.id },
+        _avg: { rating: true },
+        _count: { _all: true },
+      });
+      await prisma.laboratory.update({
+        where: { id: laboratory.id },
+        data: {
+          rating: aggregate._avg.rating ?? 0,
+          reviewCount: aggregate._count._all,
+        },
+      });
     }
 
     logger.log(`Laboratories ensured: ${laboratorySeedData.length}`);

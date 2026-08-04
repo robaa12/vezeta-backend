@@ -14,6 +14,7 @@ import { ReviewsModule } from './reviews/reviews.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { MedicalRecordsModule } from './medical-records/medical-records.module.js';
 import { LaboratoriesModule } from './laboratories/laboratories.module.js';
+import { LaboratoryRecordsModule } from './laboratory-records/laboratory-records.module.js';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware.js';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware.js';
 import { EmailModule } from './common/email/email.module.js';
@@ -43,6 +44,7 @@ import { EmailModule } from './common/email/email.module.js';
     NotificationsModule,
     MedicalRecordsModule,
     LaboratoriesModule,
+    LaboratoryRecordsModule,
   ],
   providers: [
     {

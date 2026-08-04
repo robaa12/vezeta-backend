@@ -442,7 +442,6 @@
                           },
                           "location": {
                             "type": "object",
-                            "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                             "properties": {
                               "address": {
                                 "type": "string",
@@ -465,7 +464,7 @@
                                 "type": "string",
                                 "nullable": true,
                                 "format": "uri",
-                                "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
+                                "description": "Generated Google Maps link using coordinates when available, otherwise the address."
                               }
                             },
                             "required": [
@@ -577,23 +576,22 @@
                   },
                   "address": {
                     "type": "string",
-                    "minLength": 1,
                     "maxLength": 500,
-                    "description": "Required public clinic address. Provide latitude and longitude to create an exact Google Maps pin.",
+                    "description": "Clinic address. For a Google Maps picker, submit its formatted address with latitude and longitude.",
                     "example": "15 Tahrir Square, Cairo, Egypt"
                   },
                   "latitude": {
                     "type": "number",
                     "minimum": -90,
                     "maximum": 90,
-                    "description": "Clinic latitude. Must be paired with longitude.",
+                    "description": "Google Maps picker latitude or manually entered coordinate.",
                     "example": 30.0444
                   },
                   "longitude": {
                     "type": "number",
                     "minimum": -180,
                     "maximum": 180,
-                    "description": "Clinic longitude. Must be paired with latitude.",
+                    "description": "Google Maps picker longitude or manually entered coordinate.",
                     "example": 31.2357
                   },
                   "image": {
@@ -604,8 +602,7 @@
                 },
                 "required": [
                   "name",
-                  "categoryId",
-                  "address"
+                  "categoryId"
                 ]
               }
             }
@@ -658,7 +655,6 @@
                         },
                         "location": {
                           "type": "object",
-                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -681,7 +677,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
+                              "description": "Generated Google Maps link using coordinates when available, otherwise the address."
                             }
                           },
                           "required": [
@@ -820,7 +816,6 @@
                         },
                         "location": {
                           "type": "object",
-                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -843,7 +838,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
+                              "description": "Generated Google Maps link using coordinates when available, otherwise the address."
                             }
                           },
                           "required": [
@@ -957,23 +952,22 @@
                   },
                   "address": {
                     "type": "string",
-                    "minLength": 1,
                     "maxLength": 500,
-                    "description": "New public clinic address. When provided, it cannot be empty."
+                    "description": "Clinic address. Submit an empty string to clear it."
                   },
                   "latitude": {
                     "type": "number",
                     "nullable": true,
                     "minimum": -90,
                     "maximum": 90,
-                    "description": "Clinic latitude. Send both coordinates or clear both."
+                    "description": "Google Maps picker latitude. Pass null with longitude to clear both."
                   },
                   "longitude": {
                     "type": "number",
                     "nullable": true,
                     "minimum": -180,
                     "maximum": 180,
-                    "description": "Clinic longitude. Send both coordinates or clear both."
+                    "description": "Google Maps picker longitude. Pass null with latitude to clear both."
                   },
                   "status": {
                     "type": "string",
@@ -1039,7 +1033,6 @@
                         },
                         "location": {
                           "type": "object",
-                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -1062,7 +1055,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
+                              "description": "Generated Google Maps link using coordinates when available, otherwise the address."
                             }
                           },
                           "required": [
@@ -1241,7 +1234,6 @@
                         },
                         "location": {
                           "type": "object",
-                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -1264,7 +1256,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
+                              "description": "Generated Google Maps link using coordinates when available, otherwise the address."
                             }
                           },
                           "required": [
@@ -1406,7 +1398,6 @@
                         },
                         "location": {
                           "type": "object",
-                          "description": "Clinic location. `googleMapsUrl` uses exact coordinates when available, otherwise searches the address.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -1429,7 +1420,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
+                              "description": "Generated Google Maps link using coordinates when available, otherwise the address."
                             }
                           },
                           "required": [
@@ -2750,7 +2741,7 @@
                           },
                           "location": {
                             "type": "object",
-                             "description": "Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.",
+                            "description": "Clinic location. googleMapsUrl is available only when an admin selected an exact Google Maps pin.",
                             "properties": {
                               "address": {
                                 "type": "string",
@@ -2772,7 +2763,7 @@
                                 "type": "string",
                                 "nullable": true,
                                 "format": "uri",
-                                "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
+                                "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
                               }
                             },
                             "required": [
@@ -2895,7 +2886,7 @@
                         },
                         "location": {
                           "type": "object",
-                           "description": "Clinic location. Use googleMapsUrl to open the exact Google Maps pin or address search.",
+                          "description": "Clinic location. googleMapsUrl is available only when an admin selected an exact Google Maps pin.",
                           "properties": {
                             "address": {
                               "type": "string",
@@ -2917,7 +2908,7 @@
                               "type": "string",
                               "nullable": true,
                               "format": "uri",
-                              "description": "Google Maps link generated from exact coordinates when available, otherwise an address search."
+                              "description": "Generated Google Maps link when a precise latitude/longitude pin exists; otherwise null."
                             }
                           },
                           "required": [
@@ -4197,6 +4188,613 @@
         ]
       }
     },
+    "/api/laboratories": {
+      "get": {
+        "operationId": "LaboratoriesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Laboratories filtered by search and city."
+          }
+        },
+        "summary": "List active laboratories",
+        "tags": [
+          "laboratories"
+        ]
+      }
+    },
+    "/api/laboratories/bookings/me": {
+      "get": {
+        "operationId": "LaboratoriesController_listMyBookings",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter reservations by lifecycle status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CONFIRMED",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "laboratoryId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by laboratory id (admin).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search patients, laboratories, and services (admin only).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List the authenticated user laboratory visits",
+        "tags": [
+          "laboratories"
+        ]
+      }
+    },
+    "/api/laboratories/bookings/me/{bookingId}": {
+      "get": {
+        "operationId": "LaboratoriesController_getMyBooking",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get one laboratory visit owned by the user",
+        "tags": [
+          "laboratories"
+        ]
+      }
+    },
+    "/api/laboratories/bookings/me/{bookingId}/cancel": {
+      "patch": {
+        "operationId": "LaboratoriesController_cancelMyBooking",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Cancel one laboratory visit owned by the user",
+        "tags": [
+          "laboratories"
+        ]
+      }
+    },
+    "/api/laboratories/{id}": {
+      "get": {
+        "operationId": "LaboratoriesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get laboratory details and available tests",
+        "tags": [
+          "laboratories"
+        ]
+      }
+    },
+    "/api/laboratories/{id}/reviews": {
+      "get": {
+        "operationId": "LaboratoriesController_listReviews",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List laboratory reviews",
+        "tags": [
+          "laboratories"
+        ]
+      }
+    },
+    "/api/laboratories/{id}/bookings": {
+      "post": {
+        "operationId": "LaboratoriesController_book",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookLaboratoryVisitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Laboratory visit confirmed."
+          }
+        },
+        "summary": "Book a laboratory visit",
+        "tags": [
+          "laboratories"
+        ]
+      }
+    },
+    "/api/admin/laboratories": {
+      "get": {
+        "operationId": "AdminLaboratoriesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "AdminLaboratoriesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLaboratoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/laboratories/{id}": {
+      "get": {
+        "operationId": "AdminLaboratoriesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminLaboratoriesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLaboratoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminLaboratoriesController_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/laboratories/{id}/deactivate": {
+      "patch": {
+        "operationId": "AdminLaboratoriesController_deactivate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/laboratories/{id}/activate": {
+      "patch": {
+        "operationId": "AdminLaboratoriesController_activate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/laboratories/{id}/services": {
+      "post": {
+        "operationId": "AdminLaboratoriesController_createService",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaboratoryServiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/laboratories/{id}/services/{serviceId}": {
+      "patch": {
+        "operationId": "AdminLaboratoriesController_updateService",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaboratoryServiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminLaboratoriesController_deleteService",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/laboratory-bookings": {
+      "get": {
+        "operationId": "AdminLaboratoryBookingsController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter reservations by lifecycle status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CONFIRMED",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "laboratoryId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by laboratory id (admin).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search patients, laboratories, and services (admin only).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/laboratory-bookings/{id}": {
+      "get": {
+        "operationId": "AdminLaboratoryBookingsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/laboratory-bookings/{id}/complete": {
+      "patch": {
+        "operationId": "AdminLaboratoryBookingsController_complete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/laboratory-bookings/{id}/cancel": {
+      "patch": {
+        "operationId": "AdminLaboratoryBookingsController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/auth/sign-up/email": {
       "post": {
         "tags": [
@@ -4680,7 +5278,7 @@
     "description": "REST API for the Vezeeta backend.\n\n## Auth\n\nAuth is handled by [Better Auth](https://www.better-auth.com/) and exposed under `/api/auth/*`.\nAfter `sign-in/email` or `sign-in/phone-number`, the server sets an HTTP-only session cookie.\nThe frontend must send the cookie on every subsequent request (use `credentials: \"include\"` in fetch / `withCredentials: true` in axios).\n\nFor the social OAuth flow, navigate the browser to `GET /api/oauth/google?callbackURL=/dashboard` (or `facebook`). The state cookie is set on the 302 response, so the callback succeeds without a cookie race condition. Use it as a direct link: `<a href=\"/api/oauth/google?callbackURL=/dashboard\">Sign in with Google</a>`.\n\nUse the **Authorize** button below to paste the session cookie value if you want to call protected endpoints from Swagger UI.\n\n## Tags\n\n- `auth` — current-session, social linking, health\n- `doctors` — public doctor catalog\n- `categories` — public category dropdown\n- `slots` — public slot picker for a doctor\n- `doctor-services` — per-doctor service catalog (admin)\n- `appointments` — patient booking flow\n- `reviews` — patient reviews + public doctor rating\n- `medical-records` — patient-facing read of their records\n- `notifications` — in-app inbox\n- `admin` — admin-only management (requires the `admin` role)",
     "version": "0.0.1",
     "contact": {},
-    "x-generated-at": "2026-08-02T19:13:13.533Z"
+    "x-generated-at": "2026-08-02T21:22:27.339Z"
   },
   "tags": [
     {
@@ -4980,7 +5578,7 @@
             "example": "Consultation"
           },
           "price": {
-            "type": "number",
+            "type": "object",
             "description": "Service price (no currency). Required when pricingMode is FIXED and omitted for ON_REQUEST services. Must be non-negative and at most 99999999.99.",
             "example": 150,
             "minimum": 0,
@@ -4988,7 +5586,7 @@
             "nullable": true
           },
           "discountPercent": {
-            "type": "number",
+            "type": "object",
             "description": "Discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price; the clinic confirms the final price.",
             "example": 10,
             "minimum": 0,
@@ -5028,14 +5626,14 @@
           },
           "price": {
             "type": "number",
-            "description": "New service price (no currency). ON_REQUEST services must not have a price. Must be non-negative and at most 99999999.99.",
+            "description": "New service price (no currency). Omit to keep unchanged, pass null to clear, or supply a number to set. ON_REQUEST services must not have a price.",
             "nullable": true,
             "minimum": 0,
             "maximum": 99999999.99
           },
           "discountPercent": {
-            "type": "number",
-            "description": "New discount as a percentage 0-100. ON_REQUEST services may use a discount without a known price.",
+            "type": "object",
+            "description": "New discount percentage 0-100. Omit to keep unchanged, pass null to clear, or supply a number to set. ON_REQUEST services may use a discount without a known price.",
             "minimum": 0,
             "maximum": 100,
             "nullable": true
@@ -5121,6 +5719,22 @@
             }
           }
         }
+      },
+      "BookLaboratoryVisitDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateLaboratoryDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateLaboratoryDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "LaboratoryServiceDto": {
+        "type": "object",
+        "properties": {}
       }
     }
   }

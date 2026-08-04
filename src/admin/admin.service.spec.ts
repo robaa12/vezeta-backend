@@ -29,6 +29,10 @@ const mockPrisma = () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    laboratory: {
+      count: jest.fn(),
+      groupBy: jest.fn(),
+    },
     category: {
       findUnique: jest.fn(),
       count: jest.fn(),
@@ -615,6 +619,11 @@ describe('AdminService — getStats', () => {
       { status: 'ACTIVE', _count: { _all: 4 } },
       { status: 'DEACTIVATED', _count: { _all: 1 } },
     ]);
+    prisma.laboratory.count.mockResolvedValueOnce(4);
+    prisma.laboratory.groupBy.mockResolvedValueOnce([
+      { status: 'ACTIVE', _count: { _all: 3 } },
+      { status: 'DEACTIVATED', _count: { _all: 1 } },
+    ]);
     prisma.category.count.mockResolvedValueOnce(3);
     prisma.category.groupBy.mockResolvedValueOnce([
       { status: 'ACTIVE', _count: { _all: 3 } },
@@ -641,6 +650,10 @@ describe('AdminService — getStats', () => {
     expect(result.doctors).toEqual({
       total: 5,
       byStatus: { ACTIVE: 4, DEACTIVATED: 1 },
+    });
+    expect(result.laboratories).toEqual({
+      total: 4,
+      byStatus: { ACTIVE: 3, DEACTIVATED: 1 },
     });
     expect(result.categories.byStatus).toEqual({ ACTIVE: 3 });
     expect(result.appointments.byStatus).toEqual({

@@ -14,8 +14,18 @@ export class ListPublicDoctorsDto {
   categoryId?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter doctors by clinic city.',
+    maxLength: 100,
+    example: 'Cairo',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
+  @ApiPropertyOptional({
     description:
-      'Case-insensitive substring match on doctor name, category name, or clinic address.',
+      'Case-insensitive substring match on doctor name, category name, city, area, or clinic address.',
     maxLength: 120,
     example: 'Nasr City',
   })

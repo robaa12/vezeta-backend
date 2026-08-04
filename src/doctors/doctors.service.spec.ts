@@ -109,6 +109,8 @@ describe('DoctorsService — listPublicDoctors', () => {
     const result = await service.listPublicDoctors({});
 
     expect(result.doctors[0]?.location).toEqual({
+      city: null,
+      area: null,
       address: '15 Tahrir Square, Cairo, Egypt',
       latitude: 30.0444,
       longitude: 31.2357,
@@ -145,7 +147,7 @@ describe('DoctorsService — listPublicDoctors', () => {
     });
   });
 
-  it('applies search to doctor name, category name, and clinic address', async () => {
+  it('applies search to doctor name, category name, and clinic location fields', async () => {
     prisma.doctor.findMany.mockResolvedValueOnce([]);
     prisma.doctor.count.mockResolvedValueOnce(0);
     await service.listPublicDoctors({ search: 'smith' });
@@ -158,6 +160,8 @@ describe('DoctorsService — listPublicDoctors', () => {
       OR: [
         { name: { contains: 'smith', mode: 'insensitive' } },
         { category: { name: { contains: 'smith', mode: 'insensitive' } } },
+        { city: { contains: 'smith', mode: 'insensitive' } },
+        { area: { contains: 'smith', mode: 'insensitive' } },
         { address: { contains: 'smith', mode: 'insensitive' } },
       ],
     });
@@ -180,6 +184,8 @@ describe('DoctorsService — listPublicDoctors', () => {
       OR: [
         { name: { contains: 'Jane', mode: 'insensitive' } },
         { category: { name: { contains: 'Jane', mode: 'insensitive' } } },
+        { city: { contains: 'Jane', mode: 'insensitive' } },
+        { area: { contains: 'Jane', mode: 'insensitive' } },
         { address: { contains: 'Jane', mode: 'insensitive' } },
       ],
     });

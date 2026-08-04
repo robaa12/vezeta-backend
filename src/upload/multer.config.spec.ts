@@ -1,7 +1,7 @@
 import { stat, unlink } from 'fs/promises';
 import { join } from 'path';
 import sharp from 'sharp';
-import { saveDoctorImage } from './multer.config.js';
+import { saveDoctorImage, saveLaboratoryImage } from './multer.config.js';
 
 const uploadsDir = join(process.cwd(), 'uploads', 'doctors');
 
@@ -33,5 +33,29 @@ describe('saveDoctorImage', () => {
         mimetype: 'image/jpeg',
       } as Express.Multer.File),
     ).rejects.toThrow('Upload must contain a valid image');
+  });
+});
+
+describe('saveLaboratoryImage', () => {
+  it('stores a sanitized WebP image in the laboratory directory', async () => {
+    const buffer = await sharp({
+      create: { width: 4, height: 4, channels: 3, background: '#ffffff' },
+    })
+      .png()
+      .toBuffer();
+    const url = await saveLaboratoryImage({ buffer } as Express.Multer.File);
+    const path = join(
+      process.cwd(),
+      'uploads',
+      'laboratories',
+      url.split('/').pop()!,
+    );
+
+    try {
+      expect(url).toMatch(/^\/uploads\/laboratories\/.+\.webp$/);
+      expect((await sharp(path).metadata()).format).toBe('webp');
+    } finally {
+      await unlink(path);
+    }
   });
 });
