@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { DoctorsModule } from './doctors/doctors.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
+import { AllowedSignupNamesModule } from './allowed-signup-names/allowed-signup-names.module.js';
 import { DoctorServicesModule } from './doctor-services/doctor-services.module.js';
 import { AppointmentsModule } from './appointments/appointments.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
@@ -38,6 +39,7 @@ import { EmailModule } from './common/email/email.module.js';
     AdminModule,
     DoctorsModule,
     CategoriesModule,
+    AllowedSignupNamesModule,
     DoctorServicesModule,
     AppointmentsModule,
     ReviewsModule,

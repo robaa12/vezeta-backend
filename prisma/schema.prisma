@@ -112,6 +112,33 @@ model Category {
   @@map("category")
 }
 
+// AllowedSignupName is the registration allowlist. An admin records the
+// four-word full name of each person permitted to create an account; the
+// Better Auth user-create hook claims a matching ACTIVE row and flips it to
+// USED, so each entry admits exactly one account.
+//
+// `normalizedName` (lowercased, whitespace-collapsed) is the match key —
+// matching never touches `name`, which is kept verbatim for display.
+//
+// Uniqueness is a PARTIAL unique index on normalizedName WHERE status =
+// 'ACTIVE' (see the migration). Prisma cannot express that, so it is absent
+// here: a plain @@unique would forbid a second USED row for a name the admin
+// re-added after it was consumed.
+model AllowedSignupName {
+  id             String    @id @default(cuid())
+  name           String
+  normalizedName String
+  status         String    @default("ACTIVE")
+  usedByEmail    String?
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status])
+  @@index([normalizedName, status])
+  @@map("allowed_signup_name")
+}
+
 // Doctor is a standalone CRUD record. It has NO foreign key to User.
 // Doctors cannot log in; they are managed entirely by admins via the
 // /api/admin/doctors endpoints (see feature 003-remove-doctor-role).

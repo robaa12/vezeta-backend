@@ -5,6 +5,8 @@ import { APIError } from 'better-auth/api';
 import { PrismaClient } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { EmailService } from '../common/email/email.service.js';
+import { claimAllowedSignupName } from '../allowed-signup-names/signup-name-claim.js';
+import { tidySignupName } from '../allowed-signup-names/name-normalization.js';
 import {
   MIN_PASSWORD_LENGTH,
   OTP_LENGTH,
@@ -55,10 +57,27 @@ function resolveAuthSecret(): string {
   return secret;
 }
 
+export interface CreateAuthOptions {
+  /**
+   * Enforce the signup allowlist in `databaseHooks.user.create.before`.
+   *
+   * Defaults to on outside tests. Two callers deliberately turn it off:
+   * the Super Admin bootstrap in src/seed/seed.ts (which signs up through
+   * Better Auth and would otherwise need to allowlist its own admin name),
+   * and the e2e suites, which run with NODE_ENV=test and sign up throwaway
+   * users. Mirrors how `requireEmailVerification` is relaxed below.
+   */
+  enforceSignupAllowlist?: boolean;
+}
+
 export const createAuth = (
   prismaService: PrismaService,
   emailService: EmailService,
+  options: CreateAuthOptions = {},
 ): ReturnType<typeof betterAuth<Record<string, unknown>>> => {
+  const enforceSignupAllowlist =
+    options.enforceSignupAllowlist ?? process.env.NODE_ENV !== 'test';
+
   return betterAuth({
     baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
     trustedOrigins: resolveTrustedOrigins(),
@@ -155,9 +174,51 @@ export const createAuth = (
     databaseHooks: {
       user: {
         create: {
-          before: (user) => {
+          // The registration allowlist is enforced here rather than in a Nest
+          // guard, because sign-up is handled entirely by Better Auth and
+          // never reaches a controller. This covers EVERY account-creation
+          // path, social sign-in included: a brand-new Google/Facebook user
+          // whose provider name is not on the list is rejected too. Signing
+          // in with an existing account creates no user row, so it is
+          // unaffected.
+          before: async (user) => {
             const record = user as unknown as Record<string, unknown>;
-            return Promise.resolve({ data: { ...record, role: 'user' } });
+
+            if (enforceSignupAllowlist) {
+              const name = typeof record.name === 'string' ? record.name : '';
+              const email =
+                typeof record.email === 'string' ? record.email : '';
+
+              const claimed = await claimAllowedSignupName(
+                prismaService,
+                name,
+                email,
+              );
+              if (!claimed) {
+                // Better Auth expects APIError from `better-auth/api` so the
+                // request is rejected with the right HTTP status. A plain
+                // Error surfaces as a 500.
+                //
+                // The body is serialised verbatim, so `error` is what the
+                // SPA's axios interceptor reads (`data.error || data.code`),
+                // while `code` is what Better Auth's OAuth callback forwards
+                // as ?error= when a social signup is rejected.
+                throw new APIError('FORBIDDEN', {
+                  error: 'name_not_allowed',
+                  code: 'NAME_NOT_ALLOWED',
+                  message:
+                    'This name is not allowed to sign up. Please contact the admin.',
+                });
+              }
+              // Matching tolerates sloppy spacing, so store the tidied name
+              // rather than persisting "  ahmed   ALI omar " as the account's
+              // display name.
+              return {
+                data: { ...record, name: tidySignupName(name), role: 'user' },
+              };
+            }
+
+            return { data: { ...record, role: 'user' } };
           },
         },
       },

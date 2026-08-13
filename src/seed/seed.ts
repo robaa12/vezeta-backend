@@ -41,6 +41,9 @@ async function main(): Promise<void> {
   const auth = createAuth(
     prisma as unknown as Parameters<typeof createAuth>[0],
     new EmailService(),
+    // The Super Admin is bootstrapped by this trusted local script, not by a
+    // visitor, so it must not have to appear on the signup allowlist.
+    { enforceSignupAllowlist: false },
   );
 
   try {
